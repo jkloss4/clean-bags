@@ -162,6 +162,7 @@ local SCREEN_MARGIN = 10
 local DIVIDER_GAP = 8
 local FALLBACK_BOTTOM_AREA = 240
 local MIN_HEIGHT = 300
+local MIN_SIDE = 10
 
 -- The panel is anchored by its LEFT point, so it's centered in the bank window. Laying out with the panel as tall as
 -- the window puts the panel's top at the window's top, so offsets measured from the window's top hold for both.
@@ -305,20 +306,24 @@ local function Layout(frame, panel)
   local ordered = Rules.OrderGroups(groups, groupOrder)
 
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
-  local baseColumns = math.floor((panel.ftkBaseWidth - 24) / (buttonWidth + ITEM_GAP_X))
+  -- As many columns as fit with at least MIN_SIDE on each side; the grid is centered, and the dividers span it
+  local baseColumns = math.floor((panel.ftkBaseWidth - (2 * MIN_SIDE) + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
   baseColumns = math.min(math.max(baseColumns, 8), 16)
   local top, bottomArea = TopOffset(frame), BottomArea(frame)
   local columns = FitColumns(frame, ordered, baseColumns, buttonWidth, buttonHeight, top, bottomArea)
   local extraWidth = (columns - baseColumns) * (buttonWidth + ITEM_GAP_X)
   frame:SetWidth(frame.ftkBaseWidth + extraWidth)
   panel:SetWidth(panel.ftkBaseWidth + extraWidth)
+  local gridWidth = (columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X)
+  local side = math.floor((panel.ftkBaseWidth + extraWidth - gridWidth) / 2)
+  local rightInset = panel.ftkBaseWidth + extraWidth - side - gridWidth
   local cursor = top
 
   for index = 1, #ordered do
     local group = ordered[index]
     local header = AcquireHeader(panel)
     header:ClearAllPoints()
-    header:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -cursor)
+    header:SetPoint("TOPLEFT", panel, "TOPLEFT", side, -cursor)
     local count = #group.items
     if count == 0 then
       count = #group.empties
@@ -326,7 +331,7 @@ local function Layout(frame, panel)
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -13, -cursor) -- right inset to match the left visually
+    header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -rightInset, -cursor)
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "withdraw", group.title, function(button)
         return ButtonBagSlot(button, panel)
@@ -348,7 +353,7 @@ local function Layout(frame, panel)
     for itemIndex = 1, #placed do
       local column = (itemIndex - 1) % columns
       local row = math.floor((itemIndex - 1) / columns)
-      local x = 12 + (column * (buttonWidth + ITEM_GAP_X))
+      local x = side + (column * (buttonWidth + ITEM_GAP_X))
       local y = -(cursor + (row * (buttonHeight + ITEM_GAP_Y)))
       Place(placed[itemIndex], panel, x, y)
     end
