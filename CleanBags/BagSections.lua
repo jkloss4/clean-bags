@@ -617,6 +617,37 @@ local function OrderGroups(groups, groupOrder)
   return ordered
 end
 
+local SCREEN_MARGIN = 10
+
+-- Height of the sections laid out with this many columns
+local function SectionsHeight(ordered, columns, buttonHeight)
+  local height = TOP_OFFSET
+  for index = 1, #ordered do
+    local group = ordered[index]
+    local rows = math.max(1, math.ceil((#group.items + #group.empties) / columns))
+    height = height + HEADER_H + 4 + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP
+  end
+  return math.max(height + BOTTOM_PAD, 160)
+end
+
+-- Blizzard's column count, or more when the sections wouldn't fit between the window's bottom (where Blizzard
+-- anchors it) and the top of the screen: the window gets wider instead of running off the screen. It never gets
+-- wider than the room to the left of its right edge.
+local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
+  local bottom, right = PlainNumber(frame:GetBottom()), PlainNumber(frame:GetRight())
+  local frameScale, uiScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
+  if not bottom or not right or not frameScale or frameScale <= 0 then
+    return columns
+  end
+  local screenTop = UIParent:GetTop() * uiScale / frameScale
+  local availableHeight = screenTop - bottom - SCREEN_MARGIN
+  local maxColumns = math.floor((right - SCREEN_MARGIN - 15 + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
+  while columns < maxColumns and SectionsHeight(ordered, columns, buttonHeight) > availableHeight do
+    columns = columns + 1
+  end
+  return columns
+end
+
 local function Layout(frame)
   if layingOut or not FTK:IsEnabled(MODULE_ID) or not UsingCombinedBags() then
     return
@@ -692,6 +723,9 @@ local function Layout(frame)
     end
   end
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
+  columns = FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
+  -- Blizzard's width for that many columns (CalculateWidth: the items plus 15 padding)
+  frame:SetWidth((columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X) + 15)
   local cursor = TOP_OFFSET
 
   for index = 1, #ordered do
