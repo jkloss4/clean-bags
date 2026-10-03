@@ -228,6 +228,28 @@ local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, to
   return columns
 end
 
+-- The search box and Clean Up button row, laid out like the backpack's (ContainerFrameCombinedBagsMixin:
+-- SetSearchBoxPoint and UpdateSearchBox): an 18-tall search box from x 62 to 6 left of the 28x26 button, which sits
+-- 9 in from the window's right edge. Without sorting, Blizzard's bank layout (BankFrameTemplates.xml) is put back.
+local function LayOutSearchRow(frame, panel, likeBackpack)
+  local searchBox, sortButton = frame.BankItemSearchBox, panel and panel.AutoSortButton
+  if not (searchBox and sortButton) then
+    return
+  end
+  searchBox:ClearAllPoints()
+  sortButton:ClearAllPoints()
+  if likeBackpack then
+    sortButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -9, -34)
+    searchBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 62, -37)
+    searchBox:SetPoint("RIGHT", sortButton, "LEFT", -6, 0)
+    searchBox:SetHeight(18)
+  else
+    searchBox:SetSize(110, 20)
+    searchBox:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -56, -33)
+    sortButton:SetPoint("LEFT", searchBox, "RIGHT", 8, -1)
+  end
+end
+
 local function Layout(frame, panel)
   if layingOut or not FTK:IsEnabled(MODULE_ID) or not frame or not panel or not panel:IsShown() then
     return
@@ -238,6 +260,7 @@ local function Layout(frame, panel)
   end
   layingOut = true
   headerUsed = 0
+  LayOutSearchRow(frame, panel, true)
   if not panel.ftkBaseHeight then
     panel.ftkBaseHeight = Rules.PlainNumber(panel:GetHeight())
     frame.ftkBaseHeight = Rules.PlainNumber(frame:GetHeight())
@@ -382,6 +405,9 @@ local function RestoreBank()
   headerUsed = 0
   HideUnusedHeaders()
   local frame, panel = BankPanel()
+  if frame then
+    LayOutSearchRow(frame, panel, false)
+  end
   if panel and panel.RefreshBankPanel then
     pcall(panel.RefreshBankPanel, panel)
   end
