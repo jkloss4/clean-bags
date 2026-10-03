@@ -161,6 +161,7 @@ end
 local SCREEN_MARGIN = 10
 local DIVIDER_GAP = 8
 local FALLBACK_BOTTOM_AREA = 240
+local MIN_HEIGHT = 300
 
 -- The panel is anchored by its LEFT point, so it's centered in the bank window. Laying out with the panel as tall as
 -- the window puts the panel's top at the window's top, so offsets measured from the window's top hold for both.
@@ -334,8 +335,9 @@ local function Layout(frame, panel)
   end
 
   HideUnusedHeaders()
-  -- The last row ends DIVIDER_GAP above the bag slot area's divider; the window is never shorter than Blizzard's
-  local height = math.max(cursor - SECTION_GAP + bottomArea, frame.ftkBaseHeight or 0)
+  -- Fit to the sections: the last row ends DIVIDER_GAP above the bag slot area's divider. (Not Blizzard's own
+  -- height as a minimum: Forever's bank window starts sized for a full 88-slot page.)
+  local height = math.max(cursor - SECTION_GAP + bottomArea, MIN_HEIGHT)
   frame:SetHeight(height)
   panel:SetHeight(height) -- as tall as the window, so its top is the window's top (it's centered)
   -- Blizzard's bank Clean Up button reorders the slots: only useful when sections show items in slot order
