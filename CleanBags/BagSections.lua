@@ -523,6 +523,7 @@ local function AcquireHeader(parent)
     line:SetPoint("BOTTOMLEFT", 0, 0)
     line:SetPoint("BOTTOMRIGHT", 0, 0)
     line:SetHeight(1)
+    header.line = line
     if line.SetColorTexture then
       line:SetColorTexture(0.78, 0.64, 0.28, 0.9)
     end
@@ -696,6 +697,8 @@ local function Layout(frame)
   for index = 1, #ordered do
     local group = ordered[index]
     local header = AcquireHeader(frame)
+    -- Exactly 2 screen pixels: a 1-unit line at a fractional UI scale drew 1 or 2 pixels tall depending on position
+    header.line:SetHeight(2 * PixelUtil.GetPixelToUIUnitFactor() / header:GetEffectiveScale())
     header:ClearAllPoints()
     header:SetPoint("TOPLEFT", frame, "TOPLEFT", 9, -cursor)
     local count = #group.items
