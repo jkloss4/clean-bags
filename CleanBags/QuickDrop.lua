@@ -10,11 +10,11 @@
 local _, FTK = ...
 
 local MODULE_ID = "QuickDrop"
--- The button shows where it moves the section to: your bags, or the bank (the icon of Forever's bank page tab)
+-- The button shows where it moves the section to: your bags, or the bank (the minimap's banker tracking icon)
 local ICON = "Interface\\Icons\\INV_Misc_Bag_08"
 local DIRECTION_ICONS = {
   withdraw = ICON,
-  deposit = "Interface\\ICONS\\INV_SideTab_Bank_c60",
+  deposit = "Interface\\Minimap\\Tracking\\Banker",
 }
 
 local session = 0
