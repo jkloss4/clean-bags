@@ -17,7 +17,6 @@ local ITEM_GAP_Y = 5
 local HEADER_H = 20
 local SECTION_GAP = 8
 local TOP_OFFSET = 40
-local BOTTOM_PAD = 100
 
 local SECTIONS = {
   { id = "quest", title = "Quest Items" },
@@ -159,18 +158,71 @@ local function Place(button, parent, x, y)
   button:Show()
 end
 
+local SCREEN_MARGIN = 10
+local DIVIDER_GAP = 8
+local FALLBACK_BOTTOM_AREA = 240
+
+-- The panel is anchored by its LEFT point, so it's centered in the bank window. Laying out with the panel as tall as
+-- the window puts the panel's top at the window's top, so offsets measured from the window's top hold for both.
+
 -- Sections start below the bank's search box row (the portrait hangs down beside it), or TOP_OFFSET without one
-local function TopOffset(frame, panel)
+local function TopOffset(frame)
   local searchBox = frame.BankItemSearchBox
-  local panelTop = Rules.PlainNumber(panel:GetTop())
+  local frameTop = Rules.PlainNumber(frame:GetTop())
   local searchBottom = searchBox and searchBox:IsShown() and Rules.PlainNumber(searchBox:GetBottom())
-  if panelTop and searchBottom then
-    local offset = math.floor(panelTop - searchBottom + 0.5) + 10
+  if frameTop and searchBottom then
+    local offset = math.floor(frameTop - searchBottom + 0.5) + 10
     if offset > TOP_OFFSET and offset < 120 then
       return offset
     end
   end
   return TOP_OFFSET
+end
+
+-- Room kept at the bottom of the window for Blizzard's bag slot area: everything from the "bank-divider" line above
+-- the Bag Slots row down to the window's bottom, plus a gap above that line
+local function BottomArea(frame)
+  local frameBottom = Rules.PlainNumber(frame:GetBottom())
+  if frameBottom then
+    for _, region in ipairs({ frame:GetRegions() }) do
+      if region.GetAtlas and region:GetAtlas() == "bank-divider" and region:IsShown() then
+        local dividerTop = Rules.PlainNumber(region:GetTop())
+        if dividerTop and dividerTop > frameBottom then
+          return math.ceil(dividerTop - frameBottom) + DIVIDER_GAP
+        end
+      end
+    end
+  end
+  return FALLBACK_BOTTOM_AREA
+end
+
+-- Window height needed for the sections with this many columns
+local function NeededHeight(ordered, columns, buttonHeight, top, bottomArea)
+  local height = top
+  for index = 1, #ordered do
+    local group = ordered[index]
+    local rows = math.max(1, math.ceil((#group.items + #group.empties) / columns))
+    height = height + HEADER_H + 4 + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP
+  end
+  return height - SECTION_GAP + bottomArea
+end
+
+-- Blizzard's column count, or more when the sections wouldn't fit between the window's top and the bottom of the
+-- screen: the window gets wider (to the right, where it grows) instead of running off the screen
+local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, top, bottomArea)
+  local windowTop, left = Rules.PlainNumber(frame:GetTop()), Rules.PlainNumber(frame:GetLeft())
+  local frameScale = frame:GetEffectiveScale()
+  if not windowTop or not left or not frameScale or frameScale <= 0 then
+    return columns
+  end
+  local screenRight = UIParent:GetRight() * UIParent:GetEffectiveScale() / frameScale
+  local extraRoom = screenRight - left - SCREEN_MARGIN - frame.ftkBaseWidth
+  local maxColumns = columns + math.max(0, math.floor(extraRoom / (buttonWidth + ITEM_GAP_X)))
+  local availableHeight = windowTop - SCREEN_MARGIN -- the screen's bottom is 0
+  while columns < maxColumns and NeededHeight(ordered, columns, buttonHeight, top, bottomArea) > availableHeight do
+    columns = columns + 1
+  end
+  return columns
 end
 
 local function Layout(frame, panel)
@@ -186,6 +238,10 @@ local function Layout(frame, panel)
   if not panel.ftkBaseHeight then
     panel.ftkBaseHeight = Rules.PlainNumber(panel:GetHeight())
     frame.ftkBaseHeight = Rules.PlainNumber(frame:GetHeight())
+  end
+  if not panel.ftkBaseWidth then
+    panel.ftkBaseWidth = Rules.PlainNumber(panel:GetWidth()) or 400
+    frame.ftkBaseWidth = Rules.PlainNumber(frame:GetWidth()) or panel.ftkBaseWidth
   end
 
   local setByItem, setBySlot = Rules.EquipmentSetMaps()
@@ -223,15 +279,14 @@ local function Layout(frame, panel)
   local ordered = Rules.OrderGroups(groups, groupOrder)
 
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
-  local panelWidth = Rules.PlainNumber(panel:GetWidth()) or 400
-  local columns = math.floor((panelWidth - 24) / (buttonWidth + ITEM_GAP_X))
-  if columns < 8 then
-    columns = 8
-  end
-  if columns > 16 then
-    columns = 16
-  end
-  local cursor = TopOffset(frame, panel)
+  local baseColumns = math.floor((panel.ftkBaseWidth - 24) / (buttonWidth + ITEM_GAP_X))
+  baseColumns = math.min(math.max(baseColumns, 8), 16)
+  local top, bottomArea = TopOffset(frame), BottomArea(frame)
+  local columns = FitColumns(frame, ordered, baseColumns, buttonWidth, buttonHeight, top, bottomArea)
+  local extraWidth = (columns - baseColumns) * (buttonWidth + ITEM_GAP_X)
+  frame:SetWidth(frame.ftkBaseWidth + extraWidth)
+  panel:SetWidth(panel.ftkBaseWidth + extraWidth)
+  local cursor = top
 
   for index = 1, #ordered do
     local group = ordered[index]
@@ -279,23 +334,14 @@ local function Layout(frame, panel)
   end
 
   HideUnusedHeaders()
-  local height = cursor + BOTTOM_PAD
-  if panel.ftkBaseHeight and height < panel.ftkBaseHeight then
-    height = panel.ftkBaseHeight
-  end
-  panel:SetHeight(height)
+  -- The last row ends DIVIDER_GAP above the bag slot area's divider; the window is never shorter than Blizzard's
+  local height = math.max(cursor - SECTION_GAP + bottomArea, frame.ftkBaseHeight or 0)
+  frame:SetHeight(height)
+  panel:SetHeight(height) -- as tall as the window, so its top is the window's top (it's centered)
   -- Blizzard's bank Clean Up button reorders the slots: only useful when sections show items in slot order
   if panel.AutoSortButton then
     panel.AutoSortButton:SetShown(FTK:ItemOrder() == "slot")
   end
-  local chrome = 0
-  if frame.ftkBaseHeight and panel.ftkBaseHeight then
-    chrome = frame.ftkBaseHeight - panel.ftkBaseHeight
-  end
-  if chrome < 0 or chrome > 180 then
-    chrome = 36
-  end
-  frame:SetHeight(height + chrome)
   if UpdateUIPanelPositions then
     pcall(UpdateUIPanelPositions, frame)
   end
@@ -343,6 +389,12 @@ local function RestoreBank()
   end
   if panel and panel.ftkBaseHeight then
     panel:SetHeight(panel.ftkBaseHeight)
+  end
+  if frame and frame.ftkBaseWidth then
+    frame:SetWidth(frame.ftkBaseWidth)
+  end
+  if panel and panel.ftkBaseWidth then
+    panel:SetWidth(panel.ftkBaseWidth)
   end
   if frame and UpdateUIPanelPositions then
     pcall(UpdateUIPanelPositions, frame)
