@@ -159,6 +159,20 @@ local function Place(button, parent, x, y)
   button:Show()
 end
 
+-- Sections start below the bank's search box row (the portrait hangs down beside it), or TOP_OFFSET without one
+local function TopOffset(frame, panel)
+  local searchBox = frame.BankItemSearchBox
+  local panelTop = Rules.PlainNumber(panel:GetTop())
+  local searchBottom = searchBox and searchBox:IsShown() and Rules.PlainNumber(searchBox:GetBottom())
+  if panelTop and searchBottom then
+    local offset = math.floor(panelTop - searchBottom + 0.5) + 10
+    if offset > TOP_OFFSET and offset < 120 then
+      return offset
+    end
+  end
+  return TOP_OFFSET
+end
+
 local function Layout(frame, panel)
   if layingOut or not FTK:IsEnabled(MODULE_ID) or not frame or not panel or not panel:IsShown() then
     return
@@ -217,7 +231,7 @@ local function Layout(frame, panel)
   if columns > 16 then
     columns = 16
   end
-  local cursor = TOP_OFFSET
+  local cursor = TopOffset(frame, panel)
 
   for index = 1, #ordered do
     local group = ordered[index]
