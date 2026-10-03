@@ -74,6 +74,16 @@ function CB:SetSectionOrder(order)
   end
 end
 
+-- Order of the items inside a section: "quality" (best first) or "slot" (bag slot order, so dragging rearranges)
+function CB:ItemOrder()
+  return CleanBagsDB and CleanBagsDB.itemOrder == "slot" and "slot" or "quality"
+end
+
+function CB:SetItemOrder(value)
+  CleanBagsDB.itemOrder = value == "slot" and "slot" or nil
+  self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
+end
+
 function CB:RegisterModule(def)
   self.modules[def.id] = def
   self.moduleOrder[#self.moduleOrder + 1] = def.id

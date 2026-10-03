@@ -20,6 +20,7 @@ local page = Kit.NewPage("Clean Bags", {
     for _, id in ipairs(CB.moduleOrder) do
       CB:SetEnabled(id, CB.modules[id].defaultEnabled == true)
     end
+    CleanBagsDB.itemOrder = nil
     CB:SetSectionOrder(nil)
   end,
 })
@@ -36,6 +37,17 @@ page:Checkbox("Quick Swap Buttons", Getter("QuickDrop"), Setter("QuickDrop"),
   "While the bank is open, adds a button to each section title that moves the whole section between your bags "
   .. "and the bank. Your Hearthstone always stays in your bags.",
   { enabled = SortingOn })
+
+page:Header("Items")
+page:Dropdown("Item Order", {
+  { label = "By Quality", value = "quality",
+    tooltip = "Best quality first, then grouped by item. An item that's dragged elsewhere in its section goes back "
+      .. "to its sorted spot." },
+  { label = "By Bag Slot", value = "slot",
+    tooltip = "In the order of your bag slots, so you can arrange a section by dragging items onto each other. "
+      .. "Blizzard's Clean Up button is shown, to tidy them in one click." },
+}, function() return CB:ItemOrder() end, function(value) CB:SetItemOrder(value) end,
+  "How items are ordered inside each section, in both your bags and the bank.", { enabled = SortingOn })
 
 -- Section order: one row per position, with up/down arrows (the minimal scroll bar's stepper art)
 page:Header("Section Order")

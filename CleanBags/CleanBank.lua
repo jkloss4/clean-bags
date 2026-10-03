@@ -206,7 +206,7 @@ local function Layout(frame, panel)
       local category, setTitle = Rules.CategoryFor(item, bag, slot, setByItem, setBySlot)
       local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
       local group = Group(category, title)
-      group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0 }
+      group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
     end
   end
 
@@ -274,9 +274,9 @@ local function Layout(frame, panel)
     height = panel.ftkBaseHeight
   end
   panel:SetHeight(height)
-  -- Blizzard's bank Clean Up button only reorders the slots, which the sections hide
+  -- Blizzard's bank Clean Up button reorders the slots: only useful when sections show items in slot order
   if panel.AutoSortButton then
-    panel.AutoSortButton:Hide()
+    panel.AutoSortButton:SetShown(FTK:ItemOrder() == "slot")
   end
   local chrome = 0
   if frame.ftkBaseHeight and panel.ftkBaseHeight then

@@ -567,7 +567,17 @@ local function Place(button, parent, x, y)
   button:Show()
 end
 
+-- Within a section: by quality (then item), or in bag slot order so items can be rearranged by dragging them
 local function SortEntries(list)
+  if FTK:ItemOrder() == "slot" then
+    table.sort(list, function(a, b)
+      if a.bag ~= b.bag then
+        return (a.bag or 0) < (b.bag or 0)
+      end
+      return (a.slot or 0) < (b.slot or 0)
+    end)
+    return
+  end
   table.sort(list, function(a, b)
     if a.quality ~= b.quality then
       return a.quality > b.quality
@@ -651,7 +661,7 @@ local function Layout(frame)
       -- A quiver's slots, filled or empty, stay together in their own section
       local group = Group("quiver", "Quiver")
       if item then
-        group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0 }
+        group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
       else
         group.empties[#group.empties + 1] = button
       end
@@ -661,7 +671,7 @@ local function Layout(frame)
       local category, setTitle = CategoryFor(item, bag, slot, setByItem, setBySlot)
       local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
       local group = Group(category, title)
-      group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0 }
+      group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
     end
   end
 
@@ -729,10 +739,10 @@ local function Layout(frame)
     height = 160
   end
   frame:SetHeight(height)
-  -- Blizzard's Clean Up Bags button only reorders the bag slots, which the sections hide, so it's hidden here
+  -- Blizzard's Clean Up Bags button reorders the bag slots: only useful when sections show items in slot order
   local sortButton = _G.BagItemAutoSortButton
   if sortButton and sortButton:GetParent() == frame then
-    sortButton:Hide()
+    sortButton:SetShown(FTK:ItemOrder() == "slot")
   end
   layingOut = false
 end
