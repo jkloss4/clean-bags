@@ -117,11 +117,6 @@ local function AcquireHeader(parent)
   if not header then
     header = CreateFrame("Frame", nil, parent)
     header:SetHeight(HEADER_H)
-    local bg = header:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    if bg.SetColorTexture then
-      bg:SetColorTexture(0.16, 0.12, 0.05, 0.92)
-    end
     local line = header:CreateTexture(nil, "BORDER")
     line:SetPoint("BOTTOMLEFT", 0, 0)
     line:SetPoint("BOTTOMRIGHT", 0, 0)
@@ -304,24 +299,15 @@ local function Layout(frame, panel)
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    local textWidth = 120
-    if header.label.GetStringWidth then
-      local widthOk, value = pcall(header.label.GetStringWidth, header.label)
-      if widthOk and type(value) == "number" and value == value and value > 0 then
-        textWidth = value
-      end
-    end
-    local headerWidth = textWidth + 36
-    local half = gridWidth * 0.5
-    if headerWidth > half then
-      headerWidth = half
-    end
-    header:SetWidth(headerWidth)
+    header:SetWidth(gridWidth)
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "withdraw", group.title, function(button)
         return ButtonBagSlot(button, panel)
       end)
     end
+    -- Title sits against the left edge unless the Quick Swap button is showing there
+    local swap = header.ftkQuickDrop
+    header.label:SetPoint("LEFT", header, "LEFT", (swap and swap:IsShown()) and 24 or 2, 0)
     cursor = cursor + HEADER_H + 4
 
     local placed = {}

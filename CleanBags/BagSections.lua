@@ -164,6 +164,33 @@ local function IsGear(itemID)
   return true
 end
 
+-- Quivers and ammo pouches: the bag family is 1 (arrows) or 2 (bullets), or the equipped bag's slot is a quiver.
+-- The backpack (bag 0) never is.
+local function IsQuiverBag(bag)
+  if not bag or bag <= 0 then
+    return false
+  end
+  if C_Container and C_Container.GetContainerNumFreeSlots and bit and bit.band then
+    local ok, _, family = pcall(C_Container.GetContainerNumFreeSlots, bag)
+    family = ok and PlainNumber(family) or nil
+    if family and bit.band(family, 3) ~= 0 then
+      return true
+    end
+  end
+  if C_Container and C_Container.ContainerIDToInventoryID and GetInventoryItemID then
+    local ok, invSlot = pcall(C_Container.ContainerIDToInventoryID, bag)
+    invSlot = ok and PlainNumber(invSlot) or nil
+    if invSlot then
+      local idOk, itemID = pcall(GetInventoryItemID, "player", invSlot)
+      itemID = idOk and PlainNumber(itemID) or nil
+      if itemID and EquipLoc(itemID) == "INVTYPE_QUIVER" then
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function IsQuestClass(classID)
   local itemClass = Enum and Enum.ItemClass
   if itemClass and itemClass.Questitem and classID == itemClass.Questitem then
@@ -454,11 +481,6 @@ local function AcquireHeader(parent)
   if not header then
     header = CreateFrame("Frame", nil, parent)
     header:SetHeight(HEADER_H)
-    local bg = header:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    if bg.SetColorTexture then
-      bg:SetColorTexture(0.16, 0.12, 0.05, 0.92)
-    end
     local line = header:CreateTexture(nil, "BORDER")
     line:SetPoint("BOTTOMLEFT", 0, 0)
     line:SetPoint("BOTTOMRIGHT", 0, 0)
@@ -540,11 +562,23 @@ local function Layout(frame)
     Group(SECTIONS[index].id, SECTIONS[index].title)
   end
 
+  local quiverBags = {}
   for index = 1, #buttons do
     local button = buttons[index]
     local bag, slot = ButtonBagSlot(button)
     local item = ReadItem(bag, slot)
-    if not item then
+    if bag and quiverBags[bag] == nil then
+      quiverBags[bag] = IsQuiverBag(bag)
+    end
+    if bag and quiverBags[bag] then
+      -- A quiver's slots, filled or empty, stay together in their own section
+      local group = Group("quiver", "Quiver")
+      if item then
+        group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0 }
+      else
+        group.empties[#group.empties + 1] = button
+      end
+    elseif not item then
       Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
     else
       local category, setTitle = CategoryFor(item, bag, slot, setByItem, setBySlot)
@@ -577,10 +611,10 @@ local function Layout(frame)
   end
 
   local ordered = {}
-  local prefix = { "quest", "consumable", "spellreagent", "reagent" }
+  local prefix = { "quest", "consumable", "quiver", "spellreagent", "reagent" }
   for index = 1, #prefix do
     local group = groups[prefix[index]]
-    if group and #group.items > 0 then
+    if group and (#group.items > 0 or #group.empties > 0) then
       SortEntries(group.items)
       ordered[#ordered + 1] = group
     end
@@ -637,28 +671,21 @@ local function Layout(frame)
     header:ClearAllPoints()
     header:SetPoint("TOPLEFT", frame, "TOPLEFT", 9, -cursor)
     local count = #group.items
-    if count == 0 then
+    if group.id == "quiver" then
+      count = count .. "/" .. (#group.items + #group.empties) -- used / total slots
+    elseif count == 0 then
       count = #group.empties
     end
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    local textWidth = 120
-    if header.label.GetStringWidth then
-      local widthOk, value = pcall(header.label.GetStringWidth, header.label)
-      if widthOk and type(value) == "number" and value == value and value > 0 then
-        textWidth = value
-      end
-    end
-    local headerWidth = textWidth + 36
-    local half = gridWidth * 0.5
-    if headerWidth > half then
-      headerWidth = half
-    end
-    header:SetWidth(headerWidth)
+    header:SetWidth(gridWidth)
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "deposit", group.title, ButtonBagSlot)
     end
+    -- Title sits against the left edge unless the Quick Swap button is showing there
+    local swap = header.ftkQuickDrop
+    header.label:SetPoint("LEFT", header, "LEFT", (swap and swap:IsShown()) and 24 or 2, 0)
     cursor = cursor + HEADER_H + 4
 
     local placed = {}
