@@ -223,57 +223,7 @@ local function Layout(frame, panel)
     end
   end
 
-  local function SortEntries(list)
-    table.sort(list, function(a, b)
-      if a.quality ~= b.quality then
-        return a.quality > b.quality
-      end
-      return a.itemID < b.itemID
-    end)
-  end
-
-  local ordered = {}
-  local prefix = { "quest", "consumable", "spellreagent", "reagent" }
-  for index = 1, #prefix do
-    local group = groups[prefix[index]]
-    if group and #group.items > 0 then
-      SortEntries(group.items)
-      ordered[#ordered + 1] = group
-    end
-  end
-  local setIDs = {}
-  for index = 1, #groupOrder do
-    local id = groupOrder[index]
-    if id:find("^set:") and groups[id] and #groups[id].items > 0 then
-      setIDs[#setIDs + 1] = id
-    end
-  end
-  table.sort(setIDs, function(a, b)
-    return groups[a].title < groups[b].title
-  end)
-  for index = 1, #setIDs do
-    SortEntries(groups[setIDs[index]].items)
-    ordered[#ordered + 1] = groups[setIDs[index]]
-  end
-  local gear = groups.gear
-  if gear and #gear.items > 0 then
-    SortEntries(gear.items)
-    ordered[#ordered + 1] = gear
-  end
-  local general = groups.other
-  if general and #general.items > 0 then
-    SortEntries(general.items)
-    ordered[#ordered + 1] = general
-  end
-  local junk = groups.junk
-  if junk and #junk.items > 0 then
-    SortEntries(junk.items)
-    ordered[#ordered + 1] = junk
-  end
-  local empty = groups.empty
-  if empty and #empty.empties > 0 then
-    ordered[#ordered + 1] = empty
-  end
+  local ordered = Rules.OrderGroups(groups, groupOrder)
 
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
   local panelWidth = Rules.PlainNumber(panel:GetWidth()) or 400
@@ -284,7 +234,6 @@ local function Layout(frame, panel)
   if columns > 16 then
     columns = 16
   end
-  local gridWidth = (columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X)
   local cursor = TOP_OFFSET
 
   for index = 1, #ordered do
@@ -299,7 +248,7 @@ local function Layout(frame, panel)
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    header:SetWidth(gridWidth)
+    header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -cursor) -- same inset as the left
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "withdraw", group.title, function(button)
         return ButtonBagSlot(button, panel)
@@ -338,6 +287,10 @@ local function Layout(frame, panel)
     height = panel.ftkBaseHeight
   end
   panel:SetHeight(height)
+  -- Blizzard's bank Clean Up button only reorders the slots, which the sections hide
+  if panel.AutoSortButton then
+    panel.AutoSortButton:Hide()
+  end
   local chrome = 0
   if frame.ftkBaseHeight and panel.ftkBaseHeight then
     chrome = frame.ftkBaseHeight - panel.ftkBaseHeight
@@ -383,6 +336,9 @@ local function RestoreBank()
   local frame, panel = BankPanel()
   if panel and panel.RefreshBankPanel then
     pcall(panel.RefreshBankPanel, panel)
+  end
+  if panel and panel.AutoSortButton then
+    panel.AutoSortButton:Show()
   end
   if frame and frame.ftkBaseHeight then
     frame:SetHeight(frame.ftkBaseHeight)

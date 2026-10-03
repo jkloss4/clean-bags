@@ -19,6 +19,46 @@ function CB:Print(msg)
   end
 end
 
+-- Sections, in their default display order. "sets" stands for every equipment set's section (sorted by name).
+CB.DEFAULT_ORDER = { "quest", "consumable", "quiver", "spellreagent", "reagent", "sets", "gear", "other", "junk", "empty" }
+CB.SECTION_NAMES = {
+  quest = "Quest Items",
+  consumable = "Consumables",
+  quiver = "Quiver",
+  spellreagent = "Reagents",
+  reagent = "Crafting",
+  sets = "Equipment Sets",
+  gear = "Gear",
+  other = "General",
+  junk = "Junk",
+  empty = "Empty",
+}
+
+-- The saved order, cleaned up: unknown or repeated entries dropped, sections it's missing added at the end
+function CB:SectionOrder()
+  local order, seen = {}, {}
+  local saved = CleanBagsDB and CleanBagsDB.order
+  for _, list in ipairs({ type(saved) == "table" and saved or {}, self.DEFAULT_ORDER }) do
+    for _, id in ipairs(list) do
+      if self.SECTION_NAMES[id] and not seen[id] then
+        seen[id] = true
+        order[#order + 1] = id
+      end
+    end
+  end
+  return order
+end
+
+function CB:SetSectionOrder(order)
+  CleanBagsDB.order = order
+  if self.CleanBagsRefresh then
+    self.CleanBagsRefresh()
+  end
+  if self.CleanBankRefresh then
+    self.CleanBankRefresh()
+  end
+end
+
 function CB:RegisterModule(def)
   self.modules[def.id] = def
   self.moduleOrder[#self.moduleOrder + 1] = def.id

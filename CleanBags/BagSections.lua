@@ -529,6 +529,45 @@ local function Place(button, parent, x, y)
   button:Show()
 end
 
+local function SortEntries(list)
+  table.sort(list, function(a, b)
+    if a.quality ~= b.quality then
+      return a.quality > b.quality
+    end
+    return a.itemID < b.itemID
+  end)
+end
+
+-- The non-empty groups in the order chosen in the options; "sets" places every equipment set's group, by name
+local function OrderGroups(groups, groupOrder)
+  local ordered = {}
+  for _, id in ipairs(FTK:SectionOrder()) do
+    if id == "sets" then
+      local setIDs = {}
+      for index = 1, #groupOrder do
+        local setID = groupOrder[index]
+        if setID:find("^set:") and #groups[setID].items > 0 then
+          setIDs[#setIDs + 1] = setID
+        end
+      end
+      table.sort(setIDs, function(a, b)
+        return groups[a].title < groups[b].title
+      end)
+      for index = 1, #setIDs do
+        SortEntries(groups[setIDs[index]].items)
+        ordered[#ordered + 1] = groups[setIDs[index]]
+      end
+    else
+      local group = groups[id]
+      if group and (#group.items > 0 or #group.empties > 0) then
+        SortEntries(group.items)
+        ordered[#ordered + 1] = group
+      end
+    end
+  end
+  return ordered
+end
+
 local function Layout(frame)
   if layingOut or not FTK:IsEnabled(MODULE_ID) or not UsingCombinedBags() then
     return
@@ -601,57 +640,7 @@ local function Layout(frame)
     end
   end
 
-  local function SortEntries(list)
-    table.sort(list, function(a, b)
-      if a.quality ~= b.quality then
-        return a.quality > b.quality
-      end
-      return a.itemID < b.itemID
-    end)
-  end
-
-  local ordered = {}
-  local prefix = { "quest", "consumable", "quiver", "spellreagent", "reagent" }
-  for index = 1, #prefix do
-    local group = groups[prefix[index]]
-    if group and (#group.items > 0 or #group.empties > 0) then
-      SortEntries(group.items)
-      ordered[#ordered + 1] = group
-    end
-  end
-  local setIDs = {}
-  for index = 1, #groupOrder do
-    local id = groupOrder[index]
-    if id:find("^set:") and groups[id] and #groups[id].items > 0 then
-      setIDs[#setIDs + 1] = id
-    end
-  end
-  table.sort(setIDs, function(a, b)
-    return groups[a].title < groups[b].title
-  end)
-  for index = 1, #setIDs do
-    SortEntries(groups[setIDs[index]].items)
-    ordered[#ordered + 1] = groups[setIDs[index]]
-  end
-  local gear = groups.gear
-  if gear and #gear.items > 0 then
-    SortEntries(gear.items)
-    ordered[#ordered + 1] = gear
-  end
-  local general = groups.other
-  if general and #general.items > 0 then
-    SortEntries(general.items)
-    ordered[#ordered + 1] = general
-  end
-  local junk = groups.junk
-  if junk and #junk.items > 0 then
-    SortEntries(junk.items)
-    ordered[#ordered + 1] = junk
-  end
-  local empty = groups.empty
-  if empty and #empty.empties > 0 then
-    ordered[#ordered + 1] = empty
-  end
+  local ordered = OrderGroups(groups, groupOrder)
 
   local columns = 10
   if frame.GetColumns then
@@ -662,7 +651,6 @@ local function Layout(frame)
     end
   end
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
-  local gridWidth = (columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X)
   local cursor = TOP_OFFSET
 
   for index = 1, #ordered do
@@ -679,7 +667,7 @@ local function Layout(frame)
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    header:SetWidth(gridWidth)
+    header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -9, -cursor) -- same inset as the left
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "deposit", group.title, ButtonBagSlot)
     end
@@ -716,6 +704,11 @@ local function Layout(frame)
     height = 160
   end
   frame:SetHeight(height)
+  -- Blizzard's Clean Up Bags button only reorders the bag slots, which the sections hide, so it's hidden here
+  local sortButton = _G.BagItemAutoSortButton
+  if sortButton and sortButton:GetParent() == frame then
+    sortButton:Hide()
+  end
   layingOut = false
 end
 
@@ -764,6 +757,9 @@ local function RestoreBlizzardLayout()
   end
   if frame.UpdateItemLayout then
     pcall(frame.UpdateItemLayout, frame)
+  end
+  if frame.UpdateSearchBox then
+    pcall(frame.UpdateSearchBox, frame) -- shows the Clean Up Bags button again
   end
 end
 
@@ -817,6 +813,7 @@ end)
 
 FTK.CleanBagRules = {
   CategoryFor = CategoryFor,
+  OrderGroups = OrderGroups,
   EquipmentSetMaps = EquipmentSetMaps,
   ReadItem = ReadItem,
   PlainNumber = PlainNumber,
