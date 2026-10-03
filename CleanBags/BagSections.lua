@@ -191,6 +191,41 @@ local function IsQuiverBag(bag)
   return false
 end
 
+-- Profession tools that are plain items (not the Profession item class or a fishing pole):
+-- skinning knives, mining picks, smithing hammers, enchanting rods, engineering and alchemy tools
+local PROFESSION_TOOLS = {
+  [7005] = true, [12709] = true, [19901] = true, -- Skinning Knife, Finkle's Skinner, Zulian Slicer
+  [2901] = true, [778] = true, [756] = true, [1959] = true, [20723] = true, -- Mining Pick and other picks
+  [5956] = true, -- Blacksmith Hammer
+  [6218] = true, [6339] = true, [11130] = true, [11145] = true, [16207] = true, -- Runed enchanting rods
+  [22461] = true, [22462] = true, [22463] = true, [44452] = true,
+  [6219] = true, [10498] = true, -- Arclight Spanner, Gyromatic Micro-Adjustor
+  [9149] = true, -- Philosopher's Stone
+  [4471] = true, -- Flint and Tinder
+  [20815] = true, -- Jeweler's Kit
+  [40772] = true, [40892] = true, [40893] = true, -- Gnomish Army Knife, Hammer Pick, Bladed Pickaxe
+}
+
+local function IsProfessionTool(itemID)
+  if PROFESSION_TOOLS[itemID] then
+    return true
+  end
+  local classID = ItemClass(itemID)
+  local itemClass = Enum and Enum.ItemClass
+  if itemClass and itemClass.Profession and classID == itemClass.Profession then
+    return true -- profession tools and accessories
+  end
+  if classID == ((itemClass and itemClass.Weapon) or 2) then
+    local ok, _, _, _, _, _, _, subclassID = pcall(C_Item.GetItemInfoInstant, itemID)
+    local fishingPole = (Enum and Enum.ItemWeaponSubclass and Enum.ItemWeaponSubclass.Fishingpole) or 20
+    if ok and PlainNumber(subclassID) == fishingPole then
+      return true
+    end
+  end
+  local loc = EquipLoc(itemID)
+  return loc == "INVTYPE_PROFESSION_TOOL" or loc == "INVTYPE_PROFESSION_GEAR"
+end
+
 local function IsQuestClass(classID)
   local itemClass = Enum and Enum.ItemClass
   if itemClass and itemClass.Questitem and classID == itemClass.Questitem then
@@ -424,6 +459,9 @@ local function CategoryFor(item, bag, slot, setByItem, setBySlot)
   if item.quest or IsQuestClass(ItemClass(item.itemID)) then
     return "quest"
   end
+  if IsProfessionTool(item.itemID) then
+    return "profession"
+  end
   if IsConsumable(item.itemID) then
     return "consumable"
   end
@@ -621,20 +659,7 @@ local function Layout(frame)
       Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
     else
       local category, setTitle = CategoryFor(item, bag, slot, setByItem, setBySlot)
-      local title = setTitle or "General"
-      if category == "quest" then
-        title = "Quest Items"
-      elseif category == "consumable" then
-        title = "Consumables"
-      elseif category == "junk" then
-        title = "Junk"
-      elseif category == "spellreagent" then
-        title = "Reagents"
-      elseif category == "reagent" then
-        title = "Crafting"
-      elseif category == "gear" then
-        title = "Gear"
-      end
+      local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
       local group = Group(category, title)
       group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0 }
     end
@@ -667,7 +692,7 @@ local function Layout(frame)
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -9, -cursor) -- same inset as the left
+    header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -cursor) -- right inset to match the left visually
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "deposit", group.title, ButtonBagSlot)
     end

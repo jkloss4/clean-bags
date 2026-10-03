@@ -26,12 +26,12 @@ local page = Kit.NewPage("Clean Bags", {
 
 page:Header("Bags")
 page:Checkbox("Sort Bags into Sections", Getter("BagSections"), Setter("BagSections"),
-  "Groups your bags into Quest Items, Consumables, Reagents, Crafting, one section per equipment set, Gear, "
-  .. "General, Junk and Empty.\n\nWorks with Blizzard's combined backpack (bag menu: Combine Bags).")
+  "Groups your bags into sections: Quest Items, Consumables, Quiver, Reagents, Crafting, Profession Equipment, "
+  .. "one per equipment set, Gear, General, Junk and Empty. Their order is set under Section Order.\n\nWorks with Blizzard's combined backpack (bag menu: Combine Bags).")
 
 page:Header("Bank")
 page:Checkbox("Sort Bank into Sections", Getter("CleanBank"), Setter("CleanBank"),
-  "Groups the open bank into the same sections as your bags.")
+  "Groups the open bank into the same sections as your bags, in the same order.")
 page:Checkbox("Quick Swap Buttons", Getter("QuickDrop"), Setter("QuickDrop"),
   "While the bank is open, adds a button to each section title that moves the whole section between your bags "
   .. "and the bank. Your Hearthstone always stays in your bags.",
@@ -40,8 +40,22 @@ page:Checkbox("Quick Swap Buttons", Getter("QuickDrop"), Setter("QuickDrop"),
 -- Section order: one row per position, with up/down arrows (the minimal scroll bar's stepper art)
 page:Header("Section Order")
 
-local ORDER_TIP = "Use the arrows to move this section up or down, in both your bags and the bank. Empty sections "
-  .. "aren't shown. Equipment Sets places a section for each of your equipment sets."
+local SECTION_TIPS = {
+  quest = "Quest items, including items that start a quest.",
+  consumable = "Food, drink, potions, elixirs, bandages, scrolls and other items that are used up.",
+  quiver = "Every slot of your quiver or ammo pouch, filled or empty. Bags only.",
+  spellreagent = "Reagents that spells use up.",
+  reagent = "Trade goods: materials for crafting professions.",
+  profession = "Fishing poles, skinning knives, mining picks, smithing hammers, enchanting rods and other "
+    .. "profession tools.",
+  sets = "A section for each of your equipment sets, with the gear saved in it, in order of set name.",
+  gear = "Weapons and armor that aren't in an equipment set.",
+  other = "Everything that doesn't belong in another section.",
+  junk = "Poor quality (gray) items.",
+  empty = "Empty slots.",
+}
+local ORDER_HINT = "Use the arrows to move this section up or down, in both your bags and the bank. "
+  .. "Sections with nothing in them aren't shown."
 
 local function Move(index, delta)
   local order = CB:SectionOrder()
@@ -75,7 +89,18 @@ local function Arrow(row, atlas, onClick)
 end
 
 for index = 1, #CB.DEFAULT_ORDER do
-  local row = page:SettingRow("Section Order", ORDER_TIP, { enabled = SortingOn })
+  local row = page:SettingRow("Section Order", nil, { enabled = SortingOn })
+  -- The section in this row changes as sections are moved, so its tooltip is looked up when shown
+  function row:ShowHover(owner)
+    local id = CB:SectionOrder()[index]
+    self.HoverBackground:Show()
+    SettingsTooltip:SetOwner(owner or self.Hover, "ANCHOR_RIGHT", -10, 0)
+    GameTooltip_AddHighlightLine(SettingsTooltip, CB.SECTION_NAMES[id])
+    GameTooltip_AddNormalLine(SettingsTooltip, SECTION_TIPS[id], true)
+    GameTooltip_AddBlankLineToTooltip(SettingsTooltip)
+    GameTooltip_AddInstructionLine(SettingsTooltip, ORDER_HINT, true)
+    SettingsTooltip:Show()
+  end
   local up = Arrow(row, "minimal-scrollbar-arrow-top", function() Move(index, -1) end)
   up:SetPoint("LEFT", row, "CENTER", -80, 0)
   local down = Arrow(row, "minimal-scrollbar-arrow-bottom", function() Move(index, 1) end)

@@ -20,13 +20,16 @@ function CB:Print(msg)
 end
 
 -- Sections, in their default display order. "sets" stands for every equipment set's section (sorted by name).
-CB.DEFAULT_ORDER = { "quest", "consumable", "quiver", "spellreagent", "reagent", "sets", "gear", "other", "junk", "empty" }
+CB.DEFAULT_ORDER = {
+  "quest", "consumable", "quiver", "spellreagent", "reagent", "profession", "sets", "gear", "other", "junk", "empty",
+}
 CB.SECTION_NAMES = {
   quest = "Quest Items",
   consumable = "Consumables",
   quiver = "Quiver",
   spellreagent = "Reagents",
   reagent = "Crafting",
+  profession = "Profession Equipment",
   sets = "Equipment Sets",
   gear = "Gear",
   other = "General",
@@ -34,16 +37,28 @@ CB.SECTION_NAMES = {
   empty = "Empty",
 }
 
--- The saved order, cleaned up: unknown or repeated entries dropped, sections it's missing added at the end
+-- The saved order, cleaned up: unknown or repeated entries dropped, and sections it's missing (new in an update)
+-- added after the section they follow by default
 function CB:SectionOrder()
   local order, seen = {}, {}
   local saved = CleanBagsDB and CleanBagsDB.order
-  for _, list in ipairs({ type(saved) == "table" and saved or {}, self.DEFAULT_ORDER }) do
-    for _, id in ipairs(list) do
-      if self.SECTION_NAMES[id] and not seen[id] then
-        seen[id] = true
-        order[#order + 1] = id
+  for _, id in ipairs(type(saved) == "table" and saved or {}) do
+    if self.SECTION_NAMES[id] and not seen[id] then
+      seen[id] = true
+      order[#order + 1] = id
+    end
+  end
+  for index, id in ipairs(self.DEFAULT_ORDER) do
+    if not seen[id] then
+      seen[id] = true
+      local at = 1
+      local previous = self.DEFAULT_ORDER[index - 1]
+      for position, existing in ipairs(order) do
+        if existing == previous then
+          at = position + 1
+        end
       end
+      table.insert(order, at, id)
     end
   end
   return order

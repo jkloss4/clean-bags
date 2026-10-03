@@ -204,20 +204,7 @@ local function Layout(frame, panel)
       Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
     else
       local category, setTitle = Rules.CategoryFor(item, bag, slot, setByItem, setBySlot)
-      local title = setTitle or "General"
-      if category == "quest" then
-        title = "Quest Items"
-      elseif category == "consumable" then
-        title = "Consumables"
-      elseif category == "junk" then
-        title = "Junk"
-      elseif category == "spellreagent" then
-        title = "Reagents"
-      elseif category == "reagent" then
-        title = "Crafting"
-      elseif category == "gear" then
-        title = "Gear"
-      end
+      local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
       local group = Group(category, title)
       group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0 }
     end
@@ -248,7 +235,7 @@ local function Layout(frame, panel)
     header.label:ClearAllPoints()
     header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
     header.label:SetText(group.title .. " (" .. count .. ")")
-    header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -12, -cursor) -- same inset as the left
+    header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -13, -cursor) -- right inset to match the left visually
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.items, "withdraw", group.title, function(button)
         return ButtonBagSlot(button, panel)

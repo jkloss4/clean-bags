@@ -12,8 +12,9 @@ its minimap button.
 ## Features
 
 - **Sort Bags into Sections:** the combined backpack (bag menu: *Combine Bags*) is grouped into Quest Items,
-  Consumables, Reagents, Crafting, one section per equipment set, Gear, General, Junk and Empty. Items in a section
-  are sorted by quality.
+  Consumables, Quiver, Reagents, Crafting, Profession Equipment, one section per equipment set, Gear, General, Junk
+  and Empty, in an order you choose in the options. Items in a
+  section are sorted by quality.
 - **Sort Bank into Sections:** the open bank is grouped into the same sections.
 - **Quick Swap Buttons:** while the bank is open, each section title gets a button that moves the whole section
   between your bags and the bank. Your Hearthstone always stays in your bags.
