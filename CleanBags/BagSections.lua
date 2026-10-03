@@ -611,6 +611,7 @@ local function OrderGroups(groups, groupOrder)
 end
 
 local SCREEN_MARGIN = 10
+local GRID_SIDE = 9 -- space between the window's edges and the item grid
 
 -- Height of the sections laid out with this many columns
 local function SectionsHeight(ordered, columns, buttonHeight)
@@ -634,7 +635,7 @@ local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
   end
   local screenTop = UIParent:GetTop() * uiScale / frameScale
   local availableHeight = screenTop - bottom - SCREEN_MARGIN
-  local maxColumns = math.floor((right - SCREEN_MARGIN - 15 + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
+  local maxColumns = math.floor((right - SCREEN_MARGIN - (2 * GRID_SIDE) + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
   while columns < maxColumns and SectionsHeight(ordered, columns, buttonHeight) > availableHeight do
     columns = columns + 1
   end
@@ -717,15 +718,16 @@ local function Layout(frame)
   end
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
   columns = FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
-  -- Blizzard's width for that many columns (CalculateWidth: the items plus 15 padding)
-  frame:SetWidth((columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X) + 15)
+  -- The items plus GRID_SIDE on each side. (Blizzard's CalculateWidth pads 15 in all, 8 left and 7 right; with
+  -- the sections starting 9 in, that left a full row touching the right border.)
+  frame:SetWidth((columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X) + (2 * GRID_SIDE))
   local cursor = TOP_OFFSET
 
   for index = 1, #ordered do
     local group = ordered[index]
     local header = AcquireHeader(frame)
     header:ClearAllPoints()
-    header:SetPoint("TOPLEFT", frame, "TOPLEFT", 9, -cursor)
+    header:SetPoint("TOPLEFT", frame, "TOPLEFT", GRID_SIDE, -cursor)
     local count = #group.items
     if group.id == "quiver" then
       count = count .. "/" .. (#group.items + #group.empties) -- used / total slots
@@ -755,7 +757,7 @@ local function Layout(frame)
     for itemIndex = 1, #placed do
       local column = (itemIndex - 1) % columns
       local row = math.floor((itemIndex - 1) / columns)
-      local x = 9 + (column * (buttonWidth + ITEM_GAP_X))
+      local x = GRID_SIDE + (column * (buttonWidth + ITEM_GAP_X))
       local y = -(cursor + (row * (buttonHeight + ITEM_GAP_Y)))
       Place(placed[itemIndex], frame, x, y)
     end
