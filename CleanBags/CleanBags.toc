@@ -1,0 +1,15 @@
+## Interface: 120100, 16001
+## Title: Clean Bags
+## Notes: Sorts Blizzard's own bags and bank into sections (Quest Items, Consumables, Reagents, Gear, Junk...), with no new bag window.
+## Version: 1.0.0
+## Author: Jay Kloss
+## IconTexture: Interface\Icons\INV_Misc_Bag_08
+## Category-enUS: Inventory
+## SavedVariables: CleanBagsDB
+
+Core.lua
+BagSections.lua
+CleanBank.lua
+QuickDrop.lua
+SettingsKit.lua
+Options.lua
