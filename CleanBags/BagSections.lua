@@ -525,7 +525,7 @@ local function AcquireHeader(parent)
     label:SetPoint("RIGHT", -8, 0)
     label:SetJustifyH("LEFT")
     label:SetWordWrap(false)
-    label:SetTextColor(NORMAL_FONT_COLOR:GetRGB()) -- Blizzard's standard yellow (GameFontNormal)
+    label:SetTextColor(HIGHLIGHT_FONT_COLOR:GetRGB()) -- Blizzard's white (GameFontHighlight)
     header.label = label
     header:EnableMouse(false)
     headerPool[headerUsed] = header
