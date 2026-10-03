@@ -84,6 +84,30 @@ function CB:SetItemOrder(value)
   self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
 end
 
+-- Section divider: the top edge of the bag's coin box border (Blizzard's _common-coinbox-center art, 17 units tall),
+-- cropped to its gold rim and the shadow under it, and drawn at the coin box's scale so it matches that border.
+local COINBOX_ATLAS = "_common-coinbox-center"
+local COINBOX_HEIGHT = 17
+local DIVIDER_HEIGHT = 5
+
+function CB.CreateDivider(header)
+  local line = header:CreateTexture(nil, "BORDER")
+  line:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, 2)
+  line:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, 2)
+  line:SetHeight(DIVIDER_HEIGHT)
+  local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(COINBOX_ATLAS)
+  if info and info.file then
+    local top = info.topTexCoord
+    local bottom = top + (info.bottomTexCoord - top) * DIVIDER_HEIGHT / COINBOX_HEIGHT
+    line:SetTexture(info.file)
+    line:SetTexCoord(info.leftTexCoord, info.rightTexCoord, top, bottom)
+  else
+    line:SetHeight(2)
+    line:SetColorTexture(0.52, 0.42, 0.11, 1) -- the coin box rim's gold
+  end
+  return line
+end
+
 function CB:RegisterModule(def)
   self.modules[def.id] = def
   self.moduleOrder[#self.moduleOrder + 1] = def.id
