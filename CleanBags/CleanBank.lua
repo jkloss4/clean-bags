@@ -187,7 +187,9 @@ local function BottomArea(frame)
   if frameBottom then
     for _, region in ipairs({ frame:GetRegions() }) do
       if region.GetAtlas and region:GetAtlas() == "bank-divider" and region:IsShown() then
+        -- The divider is drawn at 0.48 scale, and its position comes back in its own scaled units
         local dividerTop = Rules.PlainNumber(region:GetTop())
+        dividerTop = dividerTop and dividerTop * region:GetEffectiveScale() / frame:GetEffectiveScale()
         if dividerTop and dividerTop > frameBottom then
           return math.ceil(dividerTop - frameBottom) + DIVIDER_GAP
         end
