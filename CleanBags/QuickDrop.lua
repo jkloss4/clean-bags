@@ -10,7 +10,12 @@
 local _, FTK = ...
 
 local MODULE_ID = "QuickDrop"
+-- The button shows where it moves the section to: your bags, or the bank (the icon of Forever's bank page tab)
 local ICON = "Interface\\Icons\\INV_Misc_Bag_08"
+local DIRECTION_ICONS = {
+  withdraw = ICON,
+  deposit = "Interface\\ICONS\\INV_SideTab_Bank_c60",
+}
 
 local session = 0
 local moving = false
@@ -381,6 +386,9 @@ local function Attach(_, header, entries, direction, title, bagSlot)
   end
   button.moves = moves
   button.direction = direction == "withdraw" and "withdraw" or "deposit"
+  if button.icon:SetTexture(DIRECTION_ICONS[button.direction]) == false then
+    button.icon:SetTexture(ICON)
+  end
   button.categoryTitle = title
   local level = 20
   local parent = header.GetParent and header:GetParent() or nil
