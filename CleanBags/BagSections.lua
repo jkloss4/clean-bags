@@ -654,12 +654,14 @@ local function Layout(frame)
     local button = buttons[index]
     local bag, slot = ButtonBagSlot(button)
     local item = ReadItem(bag, slot)
+    local section
     if bag and quiverBags[bag] == nil then
       quiverBags[bag] = IsQuiverBag(bag)
     end
     if bag and quiverBags[bag] then
       -- A quiver's slots, filled or empty, stay together in their own section
       local group = Group("quiver", "Quiver")
+      section = "quiver"
       if item then
         group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
       else
@@ -667,12 +669,15 @@ local function Layout(frame)
       end
     elseif not item then
       Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
+      section = "empty"
     else
       local category, setTitle = CategoryFor(item, bag, slot, setByItem, setBySlot)
       local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
       local group = Group(category, title)
       group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
+      section = category
     end
+    FTK.TrackSlot(button, section, bag, slot, item == nil)
   end
 
   local ordered = OrderGroups(groups, groupOrder)
@@ -778,6 +783,7 @@ local function HookBagOpen()
 end
 
 local function RestoreBlizzardLayout()
+  FTK.UntrackSlots()
   local frame = CombinedFrame()
   if not frame then
     HideUnusedHeaders()
@@ -817,6 +823,21 @@ local function InstallHook()
       end
     end
   end)
+  -- Also hook the combined bag frame itself: it copied the mixin's methods when it was created, so the hook above
+  -- doesn't reach it. Re-sorting right after Blizzard updates the items, sizes the frame or lays out the grid keeps
+  -- the sections in the same frame, instead of Blizzard's grid flickering in for a frame first.
+  local combined = _G.ContainerFrameCombinedBags
+  if combined then
+    for _, method in ipairs({ "UpdateItems", "UpdateItemLayout", "UpdateFrameSize", "UpdateSearchBox" }) do
+      if type(combined[method]) == "function" then
+        hooksecurefunc(combined, method, function(self)
+          if not layingOut and FTK:IsEnabled(MODULE_ID) and UsingCombinedBags() then
+            Layout(self)
+          end
+        end)
+      end
+    end
+  end
   HookBagOpen()
   if OpenAllBags then
     hooksecurefunc("OpenAllBags", ScheduleLayout)

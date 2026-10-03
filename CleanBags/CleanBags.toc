@@ -8,6 +8,7 @@
 ## SavedVariables: CleanBagsDB
 
 Core.lua
+DragGuard.lua
 BagSections.lua
 CleanBank.lua
 QuickDrop.lua

@@ -202,11 +202,13 @@ local function Layout(frame, panel)
     local item = Rules.ReadItem(bag, slot)
     if not item then
       Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
+      FTK.TrackSlot(button, "empty", bag, slot, true)
     else
       local category, setTitle = Rules.CategoryFor(item, bag, slot, setByItem, setBySlot)
       local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
       local group = Group(category, title)
       group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
+      FTK.TrackSlot(button, category, bag, slot, false)
     end
   end
 
@@ -318,6 +320,7 @@ local function ScheduleLayout()
 end
 
 local function RestoreBank()
+  FTK.UntrackSlots()
   headerUsed = 0
   HideUnusedHeaders()
   local frame, panel = BankPanel()
