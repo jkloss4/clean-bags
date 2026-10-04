@@ -642,21 +642,8 @@ local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
   return columns
 end
 
-local function Layout(frame)
-  if layingOut or not FTK:IsEnabled(MODULE_ID) or not UsingCombinedBags() then
-    return
-  end
-  if not frame or not frame:IsShown() then
-    return
-  end
-  local buttons = CollectButtons(frame)
-  if #buttons == 0 then
-    return
-  end
-
-  layingOut = true
-  headerUsed = 0
-
+-- Item Type grouping: sections by kind of item (quest, consumable, gear...), in the chosen section order
+local function GroupByType(buttons)
   local setByItem, setBySlot = EquipmentSetMaps()
   local groups = {}
   local groupOrder = {}
@@ -706,7 +693,84 @@ local function Layout(frame)
     FTK.TrackSlot(button, section, bag, slot, item == nil)
   end
 
-  local ordered = OrderGroups(groups, groupOrder)
+  return OrderGroups(groups, groupOrder)
+end
+
+-- The name shown for a bag's section: the bag item's name, else Backpack / Bank / Bag n
+local function BagTitle(bag)
+  if C_Container and C_Container.GetBagName then
+    local ok, name = pcall(C_Container.GetBagName, bag)
+    name = ok and PlainString(name) or nil
+    if name then
+      return name
+    end
+  end
+  if bag == 0 then
+    return BACKPACK_TOOLTIP or "Backpack"
+  end
+  if bag == ((Enum and Enum.BagIndex and Enum.BagIndex.Bank) or -1) then
+    return BANK or "Bank"
+  end
+  return "Bag " .. bag
+end
+
+-- Bag grouping (Guild Wars 2 style): one section per bag, in bag order, with every slot, filled or empty, in slot
+-- order. Items can be dragged between any slots, so the drag guard sees every slot as one section ("bags").
+-- .swapItems holds just the filled slots, for the Quick Swap button.
+local function GroupByBag(buttons, bagSlot)
+  local groups, bags = {}, {}
+  for index = 1, #buttons do
+    local button = buttons[index]
+    local bag, slot = bagSlot(button)
+    if bag and slot then
+      local group = groups[bag]
+      if not group then
+        group = { id = "bag", title = BagTitle(bag), items = {}, empties = {}, swapItems = {} }
+        groups[bag] = group
+        bags[#bags + 1] = bag
+      end
+      local item = ReadItem(bag, slot)
+      local entry = { button = button, itemID = item and item.itemID, quality = item and item.quality or 0, bag = bag, slot = slot }
+      group.items[#group.items + 1] = entry
+      if item then
+        group.swapItems[#group.swapItems + 1] = entry
+      end
+      FTK.TrackSlot(button, "bags", bag, slot, item == nil)
+    end
+  end
+  table.sort(bags)
+  local ordered = {}
+  for index = 1, #bags do
+    local group = groups[bags[index]]
+    table.sort(group.items, function(a, b)
+      return a.slot < b.slot
+    end)
+    ordered[#ordered + 1] = group
+  end
+  return ordered
+end
+
+local function Layout(frame)
+  if layingOut or not FTK:IsEnabled(MODULE_ID) or not UsingCombinedBags() then
+    return
+  end
+  if not frame or not frame:IsShown() then
+    return
+  end
+  local buttons = CollectButtons(frame)
+  if #buttons == 0 then
+    return
+  end
+
+  layingOut = true
+  headerUsed = 0
+
+  local ordered
+  if FTK:GroupBy() == "bag" then
+    ordered = GroupByBag(buttons, ButtonBagSlot)
+  else
+    ordered = GroupByType(buttons)
+  end
 
   local columns = 10
   if frame.GetColumns then
@@ -729,8 +793,8 @@ local function Layout(frame)
     header:ClearAllPoints()
     header:SetPoint("TOPLEFT", frame, "TOPLEFT", GRID_SIDE, -cursor)
     local count = #group.items
-    if group.id == "quiver" then
-      count = count .. "/" .. (#group.items + #group.empties) -- used / total slots
+    if group.id == "quiver" or group.id == "bag" then
+      count = (group.swapItems and #group.swapItems or count) .. "/" .. (#group.items + #group.empties) -- used / total slots
     elseif count == 0 then
       count = #group.empties
     end
@@ -739,7 +803,7 @@ local function Layout(frame)
     header.label:SetText(group.title .. " (" .. count .. ")")
     header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -cursor) -- right inset to match the left visually
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
-      FTK.QuickDrop:Attach(header, group.items, "deposit", group.title, ButtonBagSlot)
+      FTK.QuickDrop:Attach(header, group.swapItems or group.items, "deposit", group.title, ButtonBagSlot)
     end
     -- Title sits against the left edge unless the Quick Swap button is showing there
     local swap = header.ftkQuickDrop
@@ -777,7 +841,7 @@ local function Layout(frame)
   -- Blizzard's Clean Up Bags button reorders the bag slots: only useful when sections show items in slot order
   local sortButton = _G.BagItemAutoSortButton
   if sortButton and sortButton:GetParent() == frame then
-    sortButton:SetShown(FTK:ItemOrder() == "slot")
+    sortButton:SetShown(FTK:ShowsSlotOrder())
   end
   layingOut = false
 end
@@ -900,6 +964,7 @@ end)
 FTK.CleanBagRules = {
   CategoryFor = CategoryFor,
   OrderGroups = OrderGroups,
+  GroupByBag = GroupByBag,
   EquipmentSetMaps = EquipmentSetMaps,
   ReadItem = ReadItem,
   PlainNumber = PlainNumber,

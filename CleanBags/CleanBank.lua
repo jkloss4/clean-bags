@@ -271,39 +271,46 @@ local function Layout(frame, panel)
     frame.ftkBaseWidth = Rules.PlainNumber(frame:GetWidth()) or panel.ftkBaseWidth
   end
 
-  local setByItem, setBySlot = Rules.EquipmentSetMaps()
-  local groups = {}
-  local groupOrder = {}
-  local function Group(id, title)
-    local group = groups[id]
-    if not group then
-      group = { id = id, title = title, items = {}, empties = {} }
-      groups[id] = group
-      groupOrder[#groupOrder + 1] = id
+  local ordered
+  if FTK:GroupBy() == "bag" then
+    ordered = Rules.GroupByBag(buttons, function(button)
+      return ButtonBagSlot(button, panel)
+    end)
+  else
+    local setByItem, setBySlot = Rules.EquipmentSetMaps()
+    local groups = {}
+    local groupOrder = {}
+    local function Group(id, title)
+      local group = groups[id]
+      if not group then
+        group = { id = id, title = title, items = {}, empties = {} }
+        groups[id] = group
+        groupOrder[#groupOrder + 1] = id
+      end
+      return group
     end
-    return group
-  end
-  local index
-  for index = 1, #SECTIONS do
-    Group(SECTIONS[index].id, SECTIONS[index].title)
-  end
-  for index = 1, #buttons do
-    local button = buttons[index]
-    local bag, slot = ButtonBagSlot(button, panel)
-    local item = Rules.ReadItem(bag, slot)
-    if not item then
-      Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
-      FTK.TrackSlot(button, "empty", bag, slot, true)
-    else
-      local category, setTitle = Rules.CategoryFor(item, bag, slot, setByItem, setBySlot)
-      local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
-      local group = Group(category, title)
-      group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
-      FTK.TrackSlot(button, category, bag, slot, false)
+    local index
+    for index = 1, #SECTIONS do
+      Group(SECTIONS[index].id, SECTIONS[index].title)
     end
-  end
+    for index = 1, #buttons do
+      local button = buttons[index]
+      local bag, slot = ButtonBagSlot(button, panel)
+      local item = Rules.ReadItem(bag, slot)
+      if not item then
+        Group("empty", "Empty").empties[#Group("empty", "Empty").empties + 1] = button
+        FTK.TrackSlot(button, "empty", bag, slot, true)
+      else
+        local category, setTitle = Rules.CategoryFor(item, bag, slot, setByItem, setBySlot)
+        local title = setTitle or FTK.SECTION_NAMES[category] or FTK.SECTION_NAMES.other
+        local group = Group(category, title)
+        group.items[#group.items + 1] = { button = button, itemID = item.itemID, quality = item.quality or 0, bag = bag, slot = slot }
+        FTK.TrackSlot(button, category, bag, slot, false)
+      end
+    end
 
-  local ordered = Rules.OrderGroups(groups, groupOrder)
+    ordered = Rules.OrderGroups(groups, groupOrder)
+  end
 
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
   -- As many columns as fit with at least MIN_SIDE on each side; the grid is centered, and the dividers span it
@@ -325,7 +332,9 @@ local function Layout(frame, panel)
     header:ClearAllPoints()
     header:SetPoint("TOPLEFT", panel, "TOPLEFT", side, -cursor)
     local count = #group.items
-    if count == 0 then
+    if group.id == "bag" then
+      count = #group.swapItems .. "/" .. #group.items -- used / total slots
+    elseif count == 0 then
       count = #group.empties
     end
     header.label:ClearAllPoints()
@@ -333,7 +342,7 @@ local function Layout(frame, panel)
     header.label:SetText(group.title .. " (" .. count .. ")")
     header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -rightInset, -cursor)
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
-      FTK.QuickDrop:Attach(header, group.items, "withdraw", group.title, function(button)
+      FTK.QuickDrop:Attach(header, group.swapItems or group.items, "withdraw", group.title, function(button)
         return ButtonBagSlot(button, panel)
       end)
     end
@@ -372,7 +381,7 @@ local function Layout(frame, panel)
   panel:SetHeight(height) -- as tall as the window, so its top is the window's top (it's centered)
   -- Blizzard's bank Clean Up button reorders the slots: only useful when sections show items in slot order
   if panel.AutoSortButton then
-    panel.AutoSortButton:SetShown(FTK:ItemOrder() == "slot")
+    panel.AutoSortButton:SetShown(FTK:ShowsSlotOrder())
   end
   if UpdateUIPanelPositions then
     pcall(UpdateUIPanelPositions, frame)

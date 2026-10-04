@@ -16,7 +16,9 @@ its minimap button.
   and Empty. A quiver or ammo pouch keeps all its slots, filled or empty, in the Quiver section.
 - **Sort Bank into Sections:** the open bank is grouped into the same sections, with its search box and Clean Up
   button laid out like the backpack's.
-- **Section Order:** set the order of the sections in the options, with the up and down arrows.
+- **Group Items By:** sections by **Item Type** (above), or by **Bag**, Guild Wars 2 style: a section per bag, titled
+  with its name and used/total slots, with every slot in slot order, so items can be arranged and dragged between bags.
+- **Section Order:** set the order of the item type sections in the options, with the up and down arrows.
 - **Item Order:** inside a section, items are sorted **By Quality**, or kept **By Bag Slot** so you can arrange them
   by dragging (Blizzard's Clean Up button is shown in that mode). While an item is being dragged, other sections are
   dimmed and don't take the drop, so items can't be swapped into a section they don't belong to.

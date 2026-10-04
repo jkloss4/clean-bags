@@ -21,6 +21,7 @@ local page = Kit.NewPage("Clean Bags", {
       CB:SetEnabled(id, CB.modules[id].defaultEnabled == true)
     end
     CleanBagsDB.itemOrder = nil
+    CleanBagsDB.groupBy = nil
     CB:SetSectionOrder(nil)
   end,
 })
@@ -38,7 +39,20 @@ page:Checkbox("Quick Swap Buttons", Getter("QuickDrop"), Setter("QuickDrop"),
   .. "and the bank. Your Hearthstone always stays in your bags.",
   { enabled = SortingOn })
 
+-- Item Order and Section Order only apply to sections by item type
+local function ByTypeOn()
+  return SortingOn() and CB:GroupBy() == "type"
+end
+
 page:Header("Items")
+page:Dropdown("Group Items By", {
+  { label = "Item Type", value = "type",
+    tooltip = "Sections for each kind of item: Quest Items, Consumables, Gear, Junk and so on." },
+  { label = "Bag", value = "bag",
+    tooltip = "A section for each bag, like Guild Wars 2: every slot in its bag, in slot order, so items stay where "
+      .. "you put them and can be dragged between bags. Blizzard's Clean Up button is shown." },
+}, function() return CB:GroupBy() end, function(value) CB:SetGroupBy(value) end,
+  "How your bags and the bank are split into sections.", { enabled = SortingOn })
 page:Dropdown("Item Order", {
   { label = "By Quality", value = "quality",
     tooltip = "Best quality first, then grouped by item. An item that's dragged elsewhere in its section goes back "
@@ -47,7 +61,7 @@ page:Dropdown("Item Order", {
     tooltip = "In the order of your bag slots, so you can arrange a section by dragging items onto each other. "
       .. "Blizzard's Clean Up button is shown, to tidy them in one click." },
 }, function() return CB:ItemOrder() end, function(value) CB:SetItemOrder(value) end,
-  "How items are ordered inside each section, in both your bags and the bank.", { enabled = SortingOn })
+  "How items are ordered inside each section, in both your bags and the bank.", { enabled = ByTypeOn })
 
 -- Section order: one row per position, with up/down arrows (the minimal scroll bar's stepper art)
 page:Header("Section Order")
@@ -101,7 +115,7 @@ local function Arrow(row, atlas, onClick)
 end
 
 for index = 1, #CB.DEFAULT_ORDER do
-  local row = page:SettingRow("Section Order", nil, { enabled = SortingOn })
+  local row = page:SettingRow("Section Order", nil, { enabled = ByTypeOn })
   -- The section in this row changes as sections are moved, so its tooltip is looked up when shown
   function row:ShowHover(owner)
     local id = CB:SectionOrder()[index]

@@ -99,6 +99,21 @@ function CB.CreateDivider(header)
   return line
 end
 
+-- How the sections are made: "type" (by kind of item, the default) or "bag" (one section per bag, Guild Wars 2 style)
+function CB:GroupBy()
+  return CleanBagsDB and CleanBagsDB.groupBy == "bag" and "bag" or "type"
+end
+
+function CB:SetGroupBy(value)
+  CleanBagsDB.groupBy = value == "bag" and "bag" or nil
+  self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
+end
+
+-- Whether the items show in bag slot order, where Blizzard's Clean Up button (which reorders the slots) is useful
+function CB:ShowsSlotOrder()
+  return self:GroupBy() == "bag" or self:ItemOrder() == "slot"
+end
+
 function CB:RegisterModule(def)
   self.modules[def.id] = def
   self.moduleOrder[#self.moduleOrder + 1] = def.id
