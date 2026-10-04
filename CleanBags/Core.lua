@@ -121,6 +121,22 @@ function CB:SetCollapsibleSections(value)
   self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
 end
 
+-- How the window sizes when sections are collapsed: "shrink" (fits the open sections), "hold" (keeps the size it had
+-- while it stays open, then fits next time) or "full" (always sized for every section open). Plain fitting without
+-- Collapsible Sections.
+function CB:CollapseSizing()
+  if not self:CollapsibleSections() then
+    return "shrink"
+  end
+  local value = CleanBagsDB.collapseSizing
+  return (value == "shrink" or value == "full") and value or "hold"
+end
+
+function CB:SetCollapseSizing(value)
+  CleanBagsDB.collapseSizing = (value == "shrink" or value == "full") and value or nil
+  self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
+end
+
 function CB:IsSectionCollapsed(where, key)
   local saved = self:CollapsibleSections() and CleanBagsDB.collapsed and CleanBagsDB.collapsed[where]
   return key ~= nil and type(saved) == "table" and saved[key] == true

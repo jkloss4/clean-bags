@@ -563,9 +563,9 @@ local function IsCollapsed(where, group)
   return FTK:IsSectionCollapsed(where, group.key or group.id)
 end
 
--- Height a section takes and the gap below it: a collapsed section is just its title bar
-local function SectionHeight(group, where, columns, buttonHeight)
-  if IsCollapsed(where, group) then
+-- Height a section takes and the gap below it: a collapsed section is just its title bar, unless asOpen
+local function SectionHeight(group, where, columns, buttonHeight, asOpen)
+  if not asOpen and IsCollapsed(where, group) then
     return HeaderHeight() + 4, 4
   end
   local rows = math.max(1, math.ceil((#group.items + #group.empties) / columns))
@@ -692,10 +692,10 @@ local SCREEN_MARGIN = 10
 local GRID_SIDE = 9 -- space between the window's edges and the item grid
 
 -- Height of the sections laid out with this many columns
-local function SectionsHeight(ordered, columns, buttonHeight)
+local function SectionsHeight(ordered, columns, buttonHeight, asOpen)
   local height = TOP_OFFSET
   for index = 1, #ordered do
-    height = height + SectionHeight(ordered[index], "bags", columns, buttonHeight)
+    height = height + SectionHeight(ordered[index], "bags", columns, buttonHeight, asOpen)
   end
   return math.max(height + BOTTOM_PAD, 160)
 end
@@ -703,7 +703,7 @@ end
 -- Blizzard's column count, or more when the sections wouldn't fit between the window's bottom (where Blizzard
 -- anchors it) and the top of the screen: the window gets wider instead of running off the screen. It never gets
 -- wider than the room to the left of its right edge.
-local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
+local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, asOpen)
   local bottom, right = PlainNumber(frame:GetBottom()), PlainNumber(frame:GetRight())
   local frameScale, uiScale = frame:GetEffectiveScale(), UIParent:GetEffectiveScale()
   if not bottom or not right or not frameScale or frameScale <= 0 then
@@ -712,7 +712,7 @@ local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
   local screenTop = UIParent:GetTop() * uiScale / frameScale
   local availableHeight = screenTop - bottom - SCREEN_MARGIN
   local maxColumns = math.floor((right - SCREEN_MARGIN - (2 * GRID_SIDE) + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
-  while columns < maxColumns and SectionsHeight(ordered, columns, buttonHeight) > availableHeight do
+  while columns < maxColumns and SectionsHeight(ordered, columns, buttonHeight, asOpen) > availableHeight do
     columns = columns + 1
   end
   return columns
@@ -857,7 +857,11 @@ local function Layout(frame)
     end
   end
   local buttonWidth, buttonHeight = ButtonSize(buttons[1])
-  columns = FitColumns(frame, ordered, columns, buttonWidth, buttonHeight)
+  local sizing = FTK:CollapseSizing()
+  columns = FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, sizing == "full")
+  if sizing == "hold" and frame.cbHeldColumns then
+    columns = math.max(columns, frame.cbHeldColumns)
+  end
   -- The items plus GRID_SIDE on each side. (Blizzard's CalculateWidth pads 15 in all, 8 left and 7 right; with
   -- the sections starting 9 in, that left a full row touching the right border.)
   frame:SetWidth((columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X) + (2 * GRID_SIDE))
@@ -907,10 +911,19 @@ local function Layout(frame)
 
   HideUnusedHeaders()
   local height = cursor + BOTTOM_PAD
+  if sizing == "full" then
+    height = SectionsHeight(ordered, columns, buttonHeight, true)
+  elseif sizing == "hold" and frame.cbHeldHeight then
+    height = math.max(height, frame.cbHeldHeight)
+  end
   if height < 160 then
     height = 160
   end
   frame:SetHeight(height)
+  -- Kept until the bag closes, for "hold"
+  if sizing == "hold" then
+    frame.cbHeldHeight, frame.cbHeldColumns = height, columns
+  end
   -- Blizzard's Clean Up Bags button reorders the bag slots: only useful when sections show items in slot order
   local sortButton = _G.BagItemAutoSortButton
   if sortButton and sortButton:GetParent() == frame then
@@ -946,6 +959,9 @@ local function HookBagOpen()
   frame.ftkBagManagerShow = true
   frame:HookScript("OnShow", function()
     ScheduleLayout()
+  end)
+  frame:HookScript("OnHide", function(self)
+    self.cbHeldHeight, self.cbHeldColumns = nil, nil -- fits the sections again next time it opens
   end)
 end
 

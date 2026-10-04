@@ -201,11 +201,11 @@ local function BottomArea(frame)
 end
 
 -- Window height needed for the sections with this many columns
-local function NeededHeight(ordered, columns, buttonHeight, top, bottomArea)
+local function NeededHeight(ordered, columns, buttonHeight, top, bottomArea, asOpen)
   local height, gap = top, 0
   for index = 1, #ordered do
     local sectionHeight
-    sectionHeight, gap = Rules.SectionHeight(ordered[index], "bank", columns, buttonHeight)
+    sectionHeight, gap = Rules.SectionHeight(ordered[index], "bank", columns, buttonHeight, asOpen)
     height = height + sectionHeight
   end
   return height - gap + bottomArea
@@ -213,7 +213,7 @@ end
 
 -- Blizzard's column count, or more when the sections wouldn't fit between the window's top and the bottom of the
 -- screen: the window gets wider (to the right, where it grows) instead of running off the screen
-local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, top, bottomArea)
+local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, top, bottomArea, asOpen)
   local windowTop, left = Rules.PlainNumber(frame:GetTop()), Rules.PlainNumber(frame:GetLeft())
   local frameScale = frame:GetEffectiveScale()
   if not windowTop or not left or not frameScale or frameScale <= 0 then
@@ -223,7 +223,7 @@ local function FitColumns(frame, ordered, columns, buttonWidth, buttonHeight, to
   local extraRoom = screenRight - left - SCREEN_MARGIN - frame.ftkBaseWidth
   local maxColumns = columns + math.max(0, math.floor(extraRoom / (buttonWidth + ITEM_GAP_X)))
   local availableHeight = windowTop - SCREEN_MARGIN -- the screen's bottom is 0
-  while columns < maxColumns and NeededHeight(ordered, columns, buttonHeight, top, bottomArea) > availableHeight do
+  while columns < maxColumns and NeededHeight(ordered, columns, buttonHeight, top, bottomArea, asOpen) > availableHeight do
     columns = columns + 1
   end
   return columns
@@ -317,7 +317,11 @@ local function Layout(frame, panel)
   local baseColumns = math.floor((panel.ftkBaseWidth - (2 * MIN_SIDE) + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
   baseColumns = math.min(math.max(baseColumns, 8), 16)
   local top, bottomArea = TopOffset(frame), BottomArea(frame)
-  local columns = FitColumns(frame, ordered, baseColumns, buttonWidth, buttonHeight, top, bottomArea)
+  local sizing = FTK:CollapseSizing()
+  local columns = FitColumns(frame, ordered, baseColumns, buttonWidth, buttonHeight, top, bottomArea, sizing == "full")
+  if sizing == "hold" and frame.cbHeldColumns then
+    columns = math.max(columns, frame.cbHeldColumns)
+  end
   local extraWidth = (columns - baseColumns) * (buttonWidth + ITEM_GAP_X)
   frame:SetWidth(frame.ftkBaseWidth + extraWidth)
   panel:SetWidth(panel.ftkBaseWidth + extraWidth)
@@ -375,7 +379,17 @@ local function Layout(frame, panel)
   HideUnusedHeaders()
   -- Fit to the sections: the last row ends DIVIDER_GAP above the bag slot area's divider. (Not Blizzard's own
   -- height as a minimum: Forever's bank window starts sized for a full 88-slot page.)
-  local height = math.max(cursor - gap + bottomArea, MIN_HEIGHT)
+  local height = cursor - gap + bottomArea
+  if sizing == "full" then
+    height = NeededHeight(ordered, columns, buttonHeight, top, bottomArea, true)
+  elseif sizing == "hold" and frame.cbHeldHeight then
+    height = math.max(height, frame.cbHeldHeight)
+  end
+  height = math.max(height, MIN_HEIGHT)
+  -- Kept until the bank closes, for "hold"
+  if sizing == "hold" then
+    frame.cbHeldHeight, frame.cbHeldColumns = height, columns
+  end
   frame:SetHeight(height)
   panel:SetHeight(height) -- as tall as the window, so its top is the window's top (it's centered)
   -- Blizzard's bank Clean Up button reorders the slots: only useful when sections show items in slot order
@@ -479,6 +493,9 @@ local function InstallHook()
     frame.ftkCleanBankShow = true
     frame:HookScript("OnShow", function()
       ScheduleLayout()
+    end)
+    frame:HookScript("OnHide", function(self)
+      self.cbHeldHeight, self.cbHeldColumns = nil, nil -- fits the sections again next time it opens
     end)
   end
   hooked = true

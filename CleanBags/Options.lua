@@ -23,6 +23,7 @@ local page = Kit.NewPage("Clean Bags", {
     CleanBagsDB.itemOrder = nil
     CleanBagsDB.groupBy = nil
     CleanBagsDB.collapsible = nil
+    CleanBagsDB.collapseSizing = nil
     CB:SetSectionOrder(nil)
   end,
 })
@@ -68,6 +69,18 @@ page:Checkbox("Collapsible Sections", function() return CB:CollapsibleSections()
   "Section titles become collapsible bars, like the Reputation panel's: click one to hide or show that section's "
   .. "items. Works with either grouping, in your bags and the bank, and each section remembers whether it's "
   .. "collapsed.", { enabled = SortingOn })
+page:Dropdown("Window Size", {
+  { label = "Keep Size While Open", value = "hold",
+    tooltip = "Collapsing a section leaves the window its size until you close it, so the titles stay where they "
+      .. "are. It fits the open sections the next time it opens." },
+  { label = "Shrink to Fit", value = "shrink",
+    tooltip = "The window fits the open sections right away. Your bags are anchored at the bottom, so the titles "
+      .. "above move down when one is collapsed." },
+  { label = "Always Full Size", value = "full",
+    tooltip = "The window is always sized for every section open. Collapsing only hides items." },
+}, function() return CleanBagsDB.collapseSizing or "hold" end, function(value) CB:SetCollapseSizing(value) end,
+  "How your bags and the bank are sized when sections are collapsed.",
+  { enabled = function() return SortingOn() and CB:CollapsibleSections() end })
 
 -- Section order: one row per position, with up/down arrows (the minimal scroll bar's stepper art)
 page:Header("Section Order")
