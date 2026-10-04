@@ -22,6 +22,7 @@ local page = Kit.NewPage("Clean Bags", {
     end
     CleanBagsDB.itemOrder = nil
     CleanBagsDB.groupBy = nil
+    CleanBagsDB.collapsible = nil
     CB:SetSectionOrder(nil)
   end,
 })
@@ -62,6 +63,11 @@ page:Dropdown("Item Order", {
       .. "Blizzard's Clean Up button is shown, to tidy them in one click." },
 }, function() return CB:ItemOrder() end, function(value) CB:SetItemOrder(value) end,
   "How items are ordered inside each section, in both your bags and the bank.", { enabled = ByTypeOn })
+page:Checkbox("Collapsible Sections", function() return CB:CollapsibleSections() end,
+  function(value) CB:SetCollapsibleSections(value) end,
+  "Section titles become collapsible bars, like the Reputation panel's: click one to hide or show that section's "
+  .. "items. Works with either grouping, in your bags and the bank, and each section remembers whether it's "
+  .. "collapsed.", { enabled = SortingOn })
 
 -- Section order: one row per position, with up/down arrows (the minimal scroll bar's stepper art)
 page:Header("Section Order")

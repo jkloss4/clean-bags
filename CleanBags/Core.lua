@@ -109,6 +109,37 @@ function CB:SetGroupBy(value)
   self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
 end
 
+-- Collapsible Sections: section titles that hide or show their section's items, with either grouping. Collapsed
+-- sections are kept apart for the bags and the bank (where = "bags" or "bank"), by section key: the section's id
+-- ("junk", "set:<name>"...), or "bag:<bag id>" when grouped by bag.
+function CB:CollapsibleSections()
+  return CleanBagsDB and CleanBagsDB.collapsible == true
+end
+
+function CB:SetCollapsibleSections(value)
+  CleanBagsDB.collapsible = value == true or nil
+  self:SetSectionOrder(CleanBagsDB.order) -- relays out the bags and bank
+end
+
+function CB:IsSectionCollapsed(where, key)
+  local saved = self:CollapsibleSections() and CleanBagsDB.collapsed and CleanBagsDB.collapsed[where]
+  return key ~= nil and type(saved) == "table" and saved[key] == true
+end
+
+function CB:ToggleSectionCollapsed(where, key)
+  if key == nil then
+    return
+  end
+  CleanBagsDB.collapsed = CleanBagsDB.collapsed or {}
+  local saved = CleanBagsDB.collapsed[where] or {}
+  CleanBagsDB.collapsed[where] = saved
+  saved[key] = not saved[key] or nil
+  local refresh = where == "bank" and self.CleanBankRefresh or self.CleanBagsRefresh
+  if refresh then
+    refresh()
+  end
+end
+
 -- Whether the items show in bag slot order, where Blizzard's Clean Up button (which reorders the slots) is useful
 function CB:ShowsSlotOrder()
   return self:GroupBy() == "bag" or self:ItemOrder() == "slot"

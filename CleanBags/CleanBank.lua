@@ -202,13 +202,13 @@ end
 
 -- Window height needed for the sections with this many columns
 local function NeededHeight(ordered, columns, buttonHeight, top, bottomArea)
-  local height = top
+  local height, gap = top, 0
   for index = 1, #ordered do
-    local group = ordered[index]
-    local rows = math.max(1, math.ceil((#group.items + #group.empties) / columns))
-    height = height + HEADER_H + 4 + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP
+    local sectionHeight
+    sectionHeight, gap = Rules.SectionHeight(ordered[index], "bank", columns, buttonHeight)
+    height = height + sectionHeight
   end
-  return height - SECTION_GAP + bottomArea
+  return height - gap + bottomArea
 end
 
 -- Blizzard's column count, or more when the sections wouldn't fit between the window's top and the bottom of the
@@ -324,7 +324,7 @@ local function Layout(frame, panel)
   local gridWidth = (columns * buttonWidth) + ((columns - 1) * ITEM_GAP_X)
   local side = math.floor((panel.ftkBaseWidth + extraWidth - gridWidth) / 2)
   local rightInset = panel.ftkBaseWidth + extraWidth - side - gridWidth
-  local cursor = top
+  local cursor, gap = top, 0
 
   for index = 1, #ordered do
     local group = ordered[index]
@@ -337,20 +337,16 @@ local function Layout(frame, panel)
     elseif count == 0 then
       count = #group.empties
     end
-    header.label:ClearAllPoints()
-    header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
-    header.label:SetText(group.title .. " (" .. count .. ")")
     header:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -rightInset, -cursor)
+    Rules.DressHeader(header, group, "bank", group.title .. " (" .. count .. ")")
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.swapItems or group.items, "withdraw", group.title, function(button)
         return ButtonBagSlot(button, panel)
       end)
     end
-    -- Title sits against the left edge unless the Quick Swap button is showing there
-    local swap = header.ftkQuickDrop
-    header.label:SetPoint("LEFT", header, "LEFT", (swap and swap:IsShown()) and 24 or 2, 0)
-    cursor = cursor + HEADER_H + 4
+    Rules.PlaceTitle(header)
 
+    local collapsed = Rules.IsCollapsed("bank", group)
     local placed = {}
     local itemIndex
     for itemIndex = 1, #group.items do
@@ -359,24 +355,27 @@ local function Layout(frame, panel)
     for itemIndex = 1, #group.empties do
       placed[#placed + 1] = group.empties[itemIndex]
     end
+    local itemsTop = cursor + Rules.HeaderHeight() + 4
     for itemIndex = 1, #placed do
-      local column = (itemIndex - 1) % columns
-      local row = math.floor((itemIndex - 1) / columns)
-      local x = side + (column * (buttonWidth + ITEM_GAP_X))
-      local y = -(cursor + (row * (buttonHeight + ITEM_GAP_Y)))
-      Place(placed[itemIndex], panel, x, y)
+      if collapsed then
+        placed[itemIndex]:Hide()
+      else
+        local column = (itemIndex - 1) % columns
+        local row = math.floor((itemIndex - 1) / columns)
+        local x = side + (column * (buttonWidth + ITEM_GAP_X))
+        local y = -(itemsTop + (row * (buttonHeight + ITEM_GAP_Y)))
+        Place(placed[itemIndex], panel, x, y)
+      end
     end
-    local rows = math.ceil(#placed / columns)
-    if rows < 1 then
-      rows = 1
-    end
-    cursor = cursor + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP
+    local sectionHeight
+    sectionHeight, gap = Rules.SectionHeight(group, "bank", columns, buttonHeight)
+    cursor = cursor + sectionHeight
   end
 
   HideUnusedHeaders()
   -- Fit to the sections: the last row ends DIVIDER_GAP above the bag slot area's divider. (Not Blizzard's own
   -- height as a minimum: Forever's bank window starts sized for a full 88-slot page.)
-  local height = math.max(cursor - SECTION_GAP + bottomArea, MIN_HEIGHT)
+  local height = math.max(cursor - gap + bottomArea, MIN_HEIGHT)
   frame:SetHeight(height)
   panel:SetHeight(height) -- as tall as the window, so its top is the window's top (it's centered)
   -- Blizzard's bank Clean Up button reorders the slots: only useful when sections show items in slot order
@@ -421,6 +420,11 @@ local function RestoreBank()
   local frame, panel = BankPanel()
   if frame then
     LayOutSearchRow(frame, panel, false)
+  end
+  if panel then
+    for _, button in ipairs(CollectButtons(panel)) do
+      button:Show() -- items of collapsed sections
+    end
   end
   if panel and panel.RefreshBankPanel then
     pcall(panel.RefreshBankPanel, panel)

@@ -543,6 +543,84 @@ local function HideUnusedHeaders()
   end
 end
 
+-- With Collapsible Sections, section titles are Blizzard's collapsible list header (ListHeaderThreeSliceTemplate, the
+-- Reputation panel's headers, drawn with the same art as the settings' collapsible sections), at the art's own height
+local BAR_H = 26
+local barHeight
+
+local function HeaderHeight()
+  if not FTK:CollapsibleSections() then
+    return HEADER_H
+  end
+  if not barHeight then
+    local info = C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo("Options_ListExpand_Left")
+    barHeight = math.max(BAR_H, info and PlainNumber(info.height) or BAR_H)
+  end
+  return barHeight
+end
+
+local function IsCollapsed(where, group)
+  return FTK:IsSectionCollapsed(where, group.key or group.id)
+end
+
+-- Height a section takes and the gap below it: a collapsed section is just its title bar
+local function SectionHeight(group, where, columns, buttonHeight)
+  if IsCollapsed(where, group) then
+    return HeaderHeight() + 4, 4
+  end
+  local rows = math.max(1, math.ceil((#group.items + #group.empties) / columns))
+  return HeaderHeight() + 4 + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP, SECTION_GAP
+end
+
+-- The section title: the divider with a white title, or the collapsible bar, which hides or shows the section
+local function DressHeader(header, group, where, text)
+  local collapsible = FTK:CollapsibleSections()
+  header:SetHeight(HeaderHeight())
+  header.line:SetShown(not collapsible)
+  header.label:SetShown(not collapsible)
+  local bar = header.bar
+  if collapsible and not bar then
+    bar = CreateFrame("Button", nil, header, "ListHeaderThreeSliceTemplate")
+    bar:SetAllPoints()
+    bar:SetTitleColor(false, NORMAL_FONT_COLOR) -- gold, white while hovered, like the settings' sections
+    bar:SetTitleColor(true, HIGHLIGHT_FONT_COLOR)
+    bar:SetClickHandler(function(self)
+      PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON)
+      FTK:ToggleSectionCollapsed(self.where, self.key)
+    end)
+    header.bar = bar
+  end
+  if bar then
+    bar:SetShown(collapsible)
+  end
+  if collapsible then
+    bar.where, bar.key = where, group.key or group.id
+    bar:SetHeaderText(text)
+    bar:UpdateCollapsedState(IsCollapsed(where, group))
+  else
+    header.label:SetText(text)
+  end
+end
+
+-- The title sits against the left edge unless the Quick Swap button is showing there
+local function PlaceTitle(header)
+  local swap = header.ftkQuickDrop
+  local swapShown = swap and swap:IsShown()
+  local bar = header.bar
+  if bar and bar:IsShown() then
+    if swap then
+      swap:SetPoint("LEFT", header, "LEFT", 8, 0)
+      swap:SetFrameLevel(bar:GetFrameLevel() + 2) -- above the bar, so it gets the click
+    end
+    bar.Name:SetPoint("LEFT", bar, "LEFT", swapShown and 30 or 10, 0)
+  else
+    if swap then
+      swap:SetPoint("LEFT", header, "LEFT", 4, 0)
+    end
+    header.label:SetPoint("LEFT", header, "LEFT", swapShown and 24 or 2, 0)
+  end
+end
+
 local function ButtonSize(button)
   local width = button and PlainNumber(button:GetWidth()) or nil
   local height = button and PlainNumber(button:GetHeight()) or nil
@@ -617,9 +695,7 @@ local GRID_SIDE = 9 -- space between the window's edges and the item grid
 local function SectionsHeight(ordered, columns, buttonHeight)
   local height = TOP_OFFSET
   for index = 1, #ordered do
-    local group = ordered[index]
-    local rows = math.max(1, math.ceil((#group.items + #group.empties) / columns))
-    height = height + HEADER_H + 4 + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP
+    height = height + SectionHeight(ordered[index], "bags", columns, buttonHeight)
   end
   return math.max(height + BOTTOM_PAD, 160)
 end
@@ -725,7 +801,7 @@ local function GroupByBag(buttons, bagSlot)
     if bag and slot then
       local group = groups[bag]
       if not group then
-        group = { id = "bag", title = BagTitle(bag), items = {}, empties = {}, swapItems = {} }
+        group = { id = "bag", key = "bag:" .. bag, title = BagTitle(bag), items = {}, empties = {}, swapItems = {} }
         groups[bag] = group
         bags[#bags + 1] = bag
       end
@@ -798,18 +874,14 @@ local function Layout(frame)
     elseif count == 0 then
       count = #group.empties
     end
-    header.label:ClearAllPoints()
-    header.label:SetPoint("LEFT", header, "LEFT", 24, 0)
-    header.label:SetText(group.title .. " (" .. count .. ")")
     header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -10, -cursor) -- right inset to match the left visually
+    DressHeader(header, group, "bags", group.title .. " (" .. count .. ")")
     if FTK.QuickDrop and FTK.QuickDrop.Attach then
       FTK.QuickDrop:Attach(header, group.swapItems or group.items, "deposit", group.title, ButtonBagSlot)
     end
-    -- Title sits against the left edge unless the Quick Swap button is showing there
-    local swap = header.ftkQuickDrop
-    header.label:SetPoint("LEFT", header, "LEFT", (swap and swap:IsShown()) and 24 or 2, 0)
-    cursor = cursor + HEADER_H + 4
+    PlaceTitle(header)
 
+    local collapsed = IsCollapsed("bags", group)
     local placed = {}
     local itemIndex
     for itemIndex = 1, #group.items do
@@ -818,18 +890,19 @@ local function Layout(frame)
     for itemIndex = 1, #group.empties do
       placed[#placed + 1] = group.empties[itemIndex]
     end
+    local itemsTop = cursor + HeaderHeight() + 4
     for itemIndex = 1, #placed do
-      local column = (itemIndex - 1) % columns
-      local row = math.floor((itemIndex - 1) / columns)
-      local x = GRID_SIDE + (column * (buttonWidth + ITEM_GAP_X))
-      local y = -(cursor + (row * (buttonHeight + ITEM_GAP_Y)))
-      Place(placed[itemIndex], frame, x, y)
+      if collapsed then
+        placed[itemIndex]:Hide()
+      else
+        local column = (itemIndex - 1) % columns
+        local row = math.floor((itemIndex - 1) / columns)
+        local x = GRID_SIDE + (column * (buttonWidth + ITEM_GAP_X))
+        local y = -(itemsTop + (row * (buttonHeight + ITEM_GAP_Y)))
+        Place(placed[itemIndex], frame, x, y)
+      end
     end
-    local rows = math.ceil(#placed / columns)
-    if rows < 1 then
-      rows = 1
-    end
-    cursor = cursor + (rows * buttonHeight) + ((rows - 1) * ITEM_GAP_Y) + SECTION_GAP
+    cursor = cursor + SectionHeight(group, "bags", columns, buttonHeight)
   end
 
   HideUnusedHeaders()
@@ -887,6 +960,9 @@ local function RestoreBlizzardLayout()
   end
   headerUsed = 0
   HideUnusedHeaders()
+  for _, button in ipairs(CollectButtons(frame)) do
+    button:Show() -- items of collapsed sections
+  end
   if frame.UpdateFrameSize then
     pcall(frame.UpdateFrameSize, frame)
   end
@@ -968,6 +1044,11 @@ FTK.CleanBagRules = {
   EquipmentSetMaps = EquipmentSetMaps,
   ReadItem = ReadItem,
   PlainNumber = PlainNumber,
+  HeaderHeight = HeaderHeight,
+  IsCollapsed = IsCollapsed,
+  SectionHeight = SectionHeight,
+  DressHeader = DressHeader,
+  PlaceTitle = PlaceTitle,
 }
 
 FTK.CleanBagsRefresh = ScheduleLayout
