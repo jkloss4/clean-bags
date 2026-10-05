@@ -192,7 +192,7 @@ local function BottomArea(frame, panel)
         local dividerTop = Rules.PlainNumber(region:GetTop())
         dividerTop = dividerTop and dividerTop * region:GetEffectiveScale() / frame:GetEffectiveScale()
         if dividerTop and dividerTop > frameBottom then
-          return math.ceil(dividerTop - frameBottom) + DIVIDER_GAP
+          return math.floor(dividerTop - frameBottom + 0.5) + DIVIDER_GAP
         end
       end
     end
@@ -205,7 +205,7 @@ local function BottomArea(frame, panel)
     for _, child in ipairs({ panel.AutoDepositFrame, panel.MoneyFrame }) do
       local top = child and child:IsShown() and Rules.PlainNumber(child:GetTop())
       if top and top > panelBottom then
-        return math.ceil(top - panelBottom) + DIVIDER_GAP
+        return math.floor(top - panelBottom + 0.5) + DIVIDER_GAP
       end
     end
   end
