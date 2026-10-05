@@ -105,6 +105,24 @@ local function SlotState(bag, slot)
   }
 end
 
+local function IsAccountBank(bankType)
+  return bankType ~= nil and Enum and Enum.BankType and bankType == Enum.BankType.Account
+end
+
+-- Whether the item in this bag slot may go in the open bank (soulbound items can't go in the Warband bank). True
+-- when the game can't say (Forever's bank has no such rule).
+local function AllowedInBank(bag, slot, bankType)
+  if bankType == nil or not (C_Bank and C_Bank.IsItemAllowedInBankType and ItemLocation
+      and ItemLocation.CreateFromBagAndSlot) then
+    return true
+  end
+  local ok, allowed = pcall(C_Bank.IsItemAllowedInBankType, bankType, ItemLocation:CreateFromBagAndSlot(bag, slot))
+  if not ok or IsSecret(allowed) then
+    return true
+  end
+  return allowed ~= false
+end
+
 local function MoveSlot(bag, slot)
   local bankType = ActiveBankType()
   if C_Container and C_Container.UseContainerItem then
@@ -251,6 +269,8 @@ local function StartMove(moves, direction, title)
   StopMove()
   local token = session
   local list = {}
+  local skipped = 0
+  local bankType = ActiveBankType()
   local index
   for index = 1, #moves do
     local source = moves[index]
@@ -259,6 +279,10 @@ local function StartMove(moves, direction, title)
     local state = bag and slot and SlotState(bag, slot) or nil
     if state and direction ~= "withdraw" and IsHearthstone(state.itemID) then
       state = nil
+    end
+    if state and direction ~= "withdraw" and not AllowedInBank(bag, slot, bankType) then
+      state = nil -- soulbound items can't go in the Warband bank; they'd stop the move as "not moving"
+      skipped = skipped + 1
     end
     if state then
       list[#list + 1] = {
@@ -272,18 +296,23 @@ local function StartMove(moves, direction, title)
       }
     end
   end
+  local where = direction == "withdraw" and "your bags" or "the bank"
+  if direction ~= "withdraw" and IsAccountBank(bankType) then
+    where = "the Warband bank"
+  end
+  local skippedNote = skipped > 0
+    and (" " .. skipped .. (skipped == 1 and " item" or " items") .. " can't go in " .. where .. ".") or ""
   if #list == 0 then
-    FTK:Print("Quick Swap: nothing in that category to move.")
+    FTK:Print("Quick Swap: nothing in that category to move." .. skippedNote)
     return
   end
   queue = list
   moving = true
   stuck = 0
-  local where = direction == "withdraw" and "your bags" or "the bank"
   if type(title) ~= "string" or title == "" or IsSecret(title) then
     title = "that category"
   end
-  FTK:Print("Quick Swap: moving " .. #list .. " " .. title .. " to " .. where .. ".")
+  FTK:Print("Quick Swap: moving " .. #list .. " " .. title .. " to " .. where .. "." .. skippedNote)
   Later(0.05, token, MoveNext)
 end
 
