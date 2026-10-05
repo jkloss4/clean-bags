@@ -263,8 +263,45 @@ local function LayOutSearchRow(frame, panel, likeBackpack)
   end
 end
 
+-- Blizzard's own size for the bank window and panel, from before the first layout
+local function RestoreBaseSize(frame, panel)
+  if frame and frame.ftkBaseHeight then
+    frame:SetHeight(frame.ftkBaseHeight)
+  end
+  if panel and panel.ftkBaseHeight then
+    panel:SetHeight(panel.ftkBaseHeight)
+  end
+  if frame and frame.ftkBaseWidth then
+    frame:SetWidth(frame.ftkBaseWidth)
+  end
+  if panel and panel.ftkBaseWidth then
+    panel:SetWidth(panel.ftkBaseWidth)
+  end
+end
+
+-- Blizzard is showing one of its prompts instead of slots: buying a tab, or a locked bank
+local function ShowingPrompt(panel)
+  for _, prompt in ipairs(type(panel.Prompts) == "table" and panel.Prompts or {}) do
+    if prompt:IsShown() then
+      return true
+    end
+  end
+  return false
+end
+
 local function Layout(frame, panel)
   if layingOut or not FTK:IsEnabled(MODULE_ID) or not frame or not panel or not panel:IsShown() then
+    return
+  end
+  if ShowingPrompt(panel) then
+    -- nothing to sort: the prompt shows at Blizzard's size, without the last tab's sections over it
+    FTK.UntrackSlots()
+    headerUsed = 0
+    HideUnusedHeaders()
+    RestoreBaseSize(frame, panel)
+    if UpdateUIPanelPositions then
+      pcall(UpdateUIPanelPositions, frame)
+    end
     return
   end
   local buttons = CollectButtons(panel)
@@ -458,18 +495,7 @@ local function RestoreBank()
   if panel and panel.AutoSortButton then
     panel.AutoSortButton:Show()
   end
-  if frame and frame.ftkBaseHeight then
-    frame:SetHeight(frame.ftkBaseHeight)
-  end
-  if panel and panel.ftkBaseHeight then
-    panel:SetHeight(panel.ftkBaseHeight)
-  end
-  if frame and frame.ftkBaseWidth then
-    frame:SetWidth(frame.ftkBaseWidth)
-  end
-  if panel and panel.ftkBaseWidth then
-    panel:SetWidth(panel.ftkBaseWidth)
-  end
+  RestoreBaseSize(frame, panel)
   if frame and UpdateUIPanelPositions then
     pcall(UpdateUIPanelPositions, frame)
   end
