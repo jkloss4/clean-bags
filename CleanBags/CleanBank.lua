@@ -183,7 +183,7 @@ end
 
 -- Room kept at the bottom of the window for Blizzard's bag slot area: everything from the "bank-divider" line above
 -- the Bag Slots row down to the window's bottom, plus a gap above that line
-local function BottomArea(frame)
+local function BottomArea(frame, panel)
   local frameBottom = Rules.PlainNumber(frame:GetBottom())
   if frameBottom then
     for _, region in ipairs({ frame:GetRegions() }) do
@@ -194,6 +194,18 @@ local function BottomArea(frame)
         if dividerTop and dividerTop > frameBottom then
           return math.ceil(dividerTop - frameBottom) + DIVIDER_GAP
         end
+      end
+    end
+  end
+  -- Retail has no bag slot area: room for the bank panel's deposit button (Deposit All Reagents / Warbound Items),
+  -- or its money bar when there's no button. Measured from the panel's bottom, which the layout puts at the
+  -- window's bottom.
+  local panelBottom = panel and Rules.PlainNumber(panel:GetBottom())
+  if panelBottom then
+    for _, child in ipairs({ panel.AutoDepositFrame, panel.MoneyFrame }) do
+      local top = child and child:IsShown() and Rules.PlainNumber(child:GetTop())
+      if top and top > panelBottom then
+        return math.ceil(top - panelBottom) + DIVIDER_GAP
       end
     end
   end
@@ -316,7 +328,7 @@ local function Layout(frame, panel)
   -- As many columns as fit with at least MIN_SIDE on each side; the grid is centered, and the dividers span it
   local baseColumns = math.floor((panel.ftkBaseWidth - (2 * MIN_SIDE) + ITEM_GAP_X) / (buttonWidth + ITEM_GAP_X))
   baseColumns = math.min(math.max(baseColumns, 8), 16)
-  local top, bottomArea = TopOffset(frame), BottomArea(frame)
+  local top, bottomArea = TopOffset(frame), BottomArea(frame, panel)
   local sizing = FTK:CollapseSizing()
   local columns = FitColumns(frame, ordered, baseColumns, buttonWidth, buttonHeight, top, bottomArea, sizing == "full")
   if sizing == "hold" and frame.cbHeldColumns then
