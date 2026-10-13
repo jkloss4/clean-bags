@@ -1,4 +1,4 @@
-## Interface: 120100, 16001
+## Interface: 120100, 120105, 16001
 ## Title: Clean Bags
 ## Notes: Sorts Blizzard's own bags and bank into sections (Quest Items, Consumables, Reagents, Gear, Junk...), with no new bag window.
 ## Version: 1.0.0
