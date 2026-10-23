@@ -31,7 +31,7 @@ Each feature can be turned on or off in **Options > AddOns > Clean Bags** (or `/
 ## Install
 
 Download `CleanBags-<version>.zip` from the [latest release](../../releases/latest) and extract the `CleanBags` folder
-into `World of Warcraft\_classic_beta_\Interface\AddOns\` (retail: `_retail_`).
+into `World of Warcraft\_forever_\Interface\AddOns\` (retail: `_retail_`).
 
 An addon manager that installs from GitHub releases (e.g. WowUp: *Install from URL* with this repo's URL) can also
 install and update it.
